@@ -56,8 +56,22 @@ def assess(ctx) -> dict:
         stress.append(f"Repo rates {sofr_iorb.tail(5).mean():.0f}bp above IORB — reserves getting scarce.")
     if ctx.has("RPONTSYD") and ctx.s("RPONTSYD").tail(5).max() > 10:
         stress.append(f"Standing repo usage {ctx.s('RPONTSYD').tail(5).max():.0f}bn — dealers short of cash.")
-    if ctx.has("RRPONTSYD") and ctx.s("RRPONTSYD").iloc[-1] < 50:
-        stress.append("Reverse repo near empty: no buffer left to absorb QT or Treasury cash builds.")
+    if ctx.has("RRPONTSYD"):
+        r2y = ctx.s("RRPONTSYD")
+        r2y = r2y[r2y.index >= r2y.index[-1] - pd.Timedelta(days=1460)]
+        sustained = r2y.rolling(60, min_periods=20).mean().max()   # quarter-end spikes don't count
+        if r2y.iloc[-1] < 50 and sustained > 300:   # only matters once RRP has been a real buffer (2021+)
+            stress.append("Reverse repo near empty: no buffer left to absorb QT or Treasury cash builds.")
+    emerg = []
+    for sid in ("WLCFLPCL", "H41RESPPALDKNWW"):
+        if ctx.has(sid):
+            s = ctx.s(sid)
+            prior = s[s.index <= s.index[-1] - pd.Timedelta(days=28)]
+            if len(prior) and s.iloc[-1] - prior.iloc[-1] > 20:
+                emerg.append(s.iloc[-1] - prior.iloc[-1])
+    if emerg:
+        stress.append(f"Emergency Fed lending to banks up {fmt_bn(sum(emerg))} in 4 weeks (discount window / BTFP) — "
+                      "bank funding stress; the Fed is adding liquidity to contain it.")
     drivers += stress
     charts = [
         {"id": "cb_netliq", "title": "Fed net liquidity", "units": "USD bn", "start": "2015-01-01",

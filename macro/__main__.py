@@ -38,11 +38,29 @@ def cmd_build(args) -> int:
     return 0
 
 
+def cmd_report(args) -> int:
+    import json
+    from .registry import ROOT
+    from .render.dashboard import render_dashboard
+    from .render.report import load_reports, render_report, write_report
+    snap = json.loads((ROOT / "site" / "snapshot.json").read_text())
+    d = snap["meta"]["as_of"]
+    prev_files = sorted(p for p in (ROOT / "history" / "snapshots").glob("*.json") if p.stem < d)
+    prev = json.loads(prev_files[-1].read_text()) if prev_files else None
+    notes_p = ROOT / "notes" / f"{d}.md"
+    rep = render_report(snap, prev, notes_p.read_text() if notes_p.exists() else None)
+    out = write_report(rep)
+    render_dashboard(snap, load_reports())
+    print(f"report written: {out}" + (" (with analyst notes)" if notes_p.exists() else ""))
+    return 0
+
+
 def cmd_all(args) -> int:
     args.ids, args.force = None, False
     cmd_refresh(args)
     args.as_of, args.no_research = None, False
-    return cmd_build(args)
+    cmd_build(args)
+    return cmd_report(args)
 
 
 def main(argv=None) -> int:
@@ -57,7 +75,9 @@ def main(argv=None) -> int:
     b.add_argument("--as-of", help="point-in-time run, YYYY-MM-DD (not saved to history)")
     b.add_argument("--no-research", action="store_true", help="skip lags/analogues/back-tests (faster)")
     b.set_defaults(func=cmd_build)
-    a = sub.add_parser("all", help="refresh due data, then build")
+    rp = sub.add_parser("report", help="write the weekly report from site/snapshot.json")
+    rp.set_defaults(func=cmd_report)
+    a = sub.add_parser("all", help="refresh due data, build, write the report")
     a.set_defaults(func=cmd_all)
     args = ap.parse_args(argv)
     return args.func(args)
