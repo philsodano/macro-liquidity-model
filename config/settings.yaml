@@ -1,0 +1,18 @@
+# Refresh cadence per source (days between fetches). Lower = fresher, more requests.
+refresh_days:
+  fred: 1
+  treasury: 1
+  nyfed: 1
+  ecb: 7
+  boe: 7
+  sec: 7
+  tiingo: 1
+  files: 7
+  derived: 0
+# Extra days after an expected release before a series counts as stale.
+freshness_grace_days:
+  D: 5
+  W: 10
+  M: 25
+  Q: 45
+history_start: "1985-01-01"

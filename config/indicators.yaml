@@ -1,0 +1,16 @@
+- id: WALCL
+  name: Fed total assets
+  short: Size of the Fed's balance sheet
+  source: fred
+  source_id: WALCL
+  units: USD bn
+  scale: 0.001
+  freq: W
+  section: liquidity
+  pillar: central_bank
+  role: member
+  signal: leading
+  polarity: 1
+  release_lag_days: 1
+  what: Total assets of all Federal Reserve Banks (H.4.1, Wednesday level).
+  why: Balance-sheet growth (QE) adds reserves; shrinkage (QT) removes them.
