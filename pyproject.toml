@@ -1,0 +1,17 @@
+[project]
+name = "macro-liquidity-model"
+version = "0.1.0"
+description = "Liquidity-centred US macro and markets outlook model"
+requires-python = ">=3.11"
+dependencies = ["pandas>=2.2", "numpy>=1.26", "requests>=2.31", "pyyaml>=6", "openpyxl>=3.1", "xlrd>=2.0"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["network: hits live data sources (deselect with -m 'not network')"]
+addopts = "-m 'not network'"
+
+[tool.setuptools]
+packages = ["macro"]
