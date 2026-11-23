@@ -155,6 +155,7 @@ def summarize(ind, s: pd.Series, today: date, first_seen: pd.Series | None = Non
         "accel": _r(acceleration(s, PRIMARY[ind.freq])),
         "z": _r(zscore(s).iloc[-1], 2),
         "pctile": _r(percentile(s), 1),
+        "pctile_years": _r(min(20.0, (last - s.index[0]).days / 365.25), 1),
         "direction": direction(s, PRIMARY[ind.freq]),
         "freshness": freshness(ind, last.date(), today, grace),
         "note": ind.unavailable,

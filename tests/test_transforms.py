@@ -103,3 +103,9 @@ def test_stale_input_excluded_from_composite():
     assert out["freshness"] == "stale"
     assert T.usable(out) is False
     assert T.usable(T.summarize(_ind(), weekly(np.arange(60)), today=date(2026, 11, 23))) is True
+
+
+def test_summary_reports_percentile_window():
+    s = weekly(np.arange(156))  # 3 years
+    out = T.summarize(_ind(), s, today=date(2026, 11, 23))
+    assert out["pctile_years"] == pytest.approx(3.0, abs=0.1)
