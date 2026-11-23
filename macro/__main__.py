@@ -30,8 +30,11 @@ def cmd_build(args) -> int:
     sc = snap["scenarios"]["final"]
     print(f"snapshot {snap['meta']['as_of']} ({snap['meta']['mode']}): base {sc['base']}% / bull {sc['bull']}% / "
           f"bear {sc['bear']}% · data {q} · {len(snap['changes']['items'])} changes vs {snap['changes']['previous_date']}")
-    if hasattr(args, "after_build"):
-        args.after_build(snap)
+    if not as_of:
+        from .render.dashboard import render_dashboard
+        from .render.report import load_reports
+        out = render_dashboard(snap, load_reports())
+        print(f"dashboard written: {out}")
     return 0
 
 

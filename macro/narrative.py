@@ -60,7 +60,7 @@ def risk_lists(a: dict) -> tuple[list[str], list[str]]:
     for r in a["markets"]["compensation"]:
         if r.get("value") is None:
             continue
-        line = f"{r['asset']}: {r['measure'].lower()} {r.get('display', r['value'])}"
+        line = f"{r['asset']}: {r['measure']} {r.get('display', r['value'])}"
         if r["verdict"] == "well paid":
             good.append(line)
         elif r["verdict"] == "poorly paid":

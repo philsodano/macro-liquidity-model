@@ -1,0 +1,615 @@
+<title>Liquidity Cycle Monitor</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,500..800&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: sticky top bar with as-of + data status; section rail on the left (a scrolling strip on phones);
+   one content column, summary first, detail in <details>. Ink-blue accent; status colours reserved for state. */
+:root {
+  --bg: #f3f5f7; --surface: #fcfcfb; --surface-2: #eceff3; --ink: #101820; --ink-2: #47515d; --ink-3: #68727e;
+  --line: #dde2e8; --grid: #e7ebef; --accent: #1f4f8a; --accent-ink: #ffffff; --rec: rgba(16, 24, 32, .06);
+  --good: #0ca30c; --warning: #fab219; --serious: #ec835a; --critical: #d03b3b;
+  --pos: #2a78d6; --neg: #e34948; --mid: #9aa3ad;
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #e87ba4; --s6: #008300; --s7: #6250d6; --s8: #e34948;
+  --f-display: "Archivo", "Arial Narrow", system-ui, sans-serif;
+  --f-body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-data: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --r: 6px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121416; --surface: #1a1a19; --surface-2: #23262a; --ink: #f0efec; --ink-2: #c3c2b7; --ink-3: #9c9c95;
+    --line: #30343a; --grid: #262a2f; --accent: #8fb6e8; --accent-ink: #0e1620; --rec: rgba(240, 239, 236, .06);
+    --pos: #3987e5; --neg: #e66767; --mid: #6b7480;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #0ca30c; --s7: #9085e9; --s8: #e66767;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121416; --surface: #1a1a19; --surface-2: #23262a; --ink: #f0efec; --ink-2: #c3c2b7; --ink-3: #9c9c95;
+  --line: #30343a; --grid: #262a2f; --accent: #8fb6e8; --accent-ink: #0e1620; --rec: rgba(240, 239, 236, .06);
+  --pos: #3987e5; --neg: #e66767; --mid: #6b7480;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #0ca30c; --s7: #9085e9; --s8: #e66767;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 14px; line-height: 1.5; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--surface); }
+h1, h2, h3, h4 { font-family: var(--f-display); font-stretch: 87.5%; text-wrap: balance; margin: 0; letter-spacing: -.01em; }
+h2 { font-size: 1.45rem; font-weight: 700; }
+h3 { font-size: 1.08rem; font-weight: 700; }
+h4 { font-size: .95rem; font-weight: 650; }
+p { margin: 0; }
+a { color: var(--accent); }
+.num, td.n, .mono { font-family: var(--f-data); font-variant-numeric: tabular-nums; }
+.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--surface); border-bottom: 1px solid var(--line); }
+.top-in { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding-block: 10px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.brand { font-family: var(--f-display); font-stretch: 80%; font-weight: 800; font-size: 1.05rem; letter-spacing: .02em; text-transform: uppercase; }
+.asof { color: var(--ink-2); font-size: .85rem; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-left: auto; }
+.wrap { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 24px; max-width: 1360px; margin: 0 auto; padding-block: 20px 60px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+nav.rail { position: sticky; top: 64px; align-self: start; display: flex; flex-direction: column; gap: 2px; }
+nav.rail a { text-decoration: none; color: var(--ink-2); padding: 7px 10px; border-radius: var(--r); font-weight: 500; display: flex; gap: 8px; align-items: baseline; }
+nav.rail a .k { font-family: var(--f-data); font-size: .72rem; color: var(--ink-3); width: 1.2em; }
+nav.rail a:hover { background: var(--surface-2); color: var(--ink); }
+nav.rail a[aria-current="page"] { background: var(--accent); color: var(--accent-ink); }
+nav.rail a[aria-current="page"] .k { color: inherit; opacity: .8; }
+a:focus-visible, button:focus-visible, summary:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+main { min-width: 0; display: flex; flex-direction: column; gap: 20px; }
+section.view { display: flex; flex-direction: column; gap: 18px; }
+.lede { color: var(--ink-2); max-width: 72ch; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+.grid.wide { grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); }
+.grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.cols2 { display: grid; gap: 12px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.tile { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; border-top: 3px solid var(--tone, var(--line)); }
+.tile .lab { font-size: .72rem; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-3); font-weight: 600; }
+.tile .val { font-family: var(--f-display); font-stretch: 87.5%; font-size: 1.25rem; font-weight: 700; line-height: 1.2; }
+.tile .det { color: var(--ink-2); font-size: .85rem; }
+.t-good { --tone: var(--good); } .t-bad { --tone: var(--critical); } .t-mixed { --tone: var(--warning); } .t-neutral { --tone: var(--mid); } .t-na { --tone: var(--line); }
+.pill { display: inline-flex; align-items: center; gap: 5px; font-size: .74rem; font-weight: 600; padding: 2px 8px; border-radius: 999px; white-space: nowrap;
+  background: color-mix(in srgb, var(--pc, var(--mid)) 16%, transparent); color: var(--ink); border: 1px solid color-mix(in srgb, var(--pc, var(--mid)) 45%, transparent); }
+.pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--pc, var(--mid)); }
+.p-good { --pc: var(--good); } .p-bad { --pc: var(--critical); } .p-warn { --pc: var(--warning); } .p-serious { --pc: var(--serious); } .p-neutral { --pc: var(--mid); } .p-accent { --pc: var(--accent); }
+.thesis { border-left: 0; background: var(--surface); }
+.thesis ul { margin: 0; padding-left: 1.1em; display: flex; flex-direction: column; gap: 6px; max-width: 80ch; }
+.eyebrow { font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-3); font-weight: 600; }
+.scen-bar { display: flex; gap: 2px; height: 34px; border-radius: 4px; overflow: hidden; }
+.scen-bar div { display: flex; align-items: center; padding: 0 10px; color: #fff; font-weight: 600; font-size: .85rem; white-space: nowrap; overflow: hidden; }
+.sc-base { background: #6b7480; } .sc-bull { background: var(--pos); } .sc-bear { background: var(--neg); }
+details { border-top: 1px solid var(--line); padding-top: 8px; }
+details > summary { cursor: pointer; color: var(--accent); font-weight: 600; font-size: .86rem; list-style-position: outside; }
+details[open] > summary { margin-bottom: 8px; }
+.tbl-wrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: .85rem; }
+th { text-align: left; font-weight: 600; color: var(--ink-3); font-size: .72rem; text-transform: uppercase; letter-spacing: .05em; padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+td { padding: 6px 8px; border-bottom: 1px solid var(--grid); vertical-align: top; }
+td.n, th.n { text-align: right; white-space: nowrap; }
+td details { border: 0; padding: 0; }
+td details > summary { color: var(--ink); font-weight: 500; }
+td details p { color: var(--ink-2); font-size: .8rem; max-width: 60ch; margin-top: 4px; }
+ul.plain { margin: 0; padding-left: 1.1em; display: flex; flex-direction: column; gap: 4px; }
+.muted { color: var(--ink-3); }
+.small { font-size: .8rem; }
+.sig { display: grid; grid-template-columns: minmax(140px, 220px) 120px minmax(0, 1fr); gap: 4px 12px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--grid); }
+.sig:last-child { border-bottom: 0; }
+.sig .ev { color: var(--ink-2); font-size: .84rem; }
+.sig .tags { display: flex; gap: 6px; margin-top: 2px; }
+.tag { font-size: .68rem; color: var(--ink-3); border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; text-transform: lowercase; }
+.dbar { position: relative; height: 10px; background: var(--surface-2); border-radius: 3px; }
+.dbar .mid { position: absolute; left: 50%; top: -2px; bottom: -2px; width: 1px; background: var(--ink-3); }
+.dbar .fill { position: absolute; top: 0; bottom: 0; border-radius: 3px; }
+.chart { display: flex; flex-direction: column; gap: 6px; position: relative; }
+.chart .sub { color: var(--ink-3); font-size: .78rem; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: .78rem; color: var(--ink-2); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
+.chart svg { display: block; width: 100%; overflow: visible; }
+.chart svg text { fill: var(--ink-3); font-family: var(--f-data); font-size: 10.5px; }
+.chart svg text.dl { fill: var(--ink-2); font-family: var(--f-body); font-size: 11px; font-weight: 600; }
+.cap { color: var(--ink-3); font-size: .75rem; }
+.tip { position: absolute; pointer-events: none; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; font-size: .78rem;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .12); z-index: 3; min-width: 140px; }
+.tip b { font-family: var(--f-data); font-weight: 500; }
+.tip .row { display: flex; gap: 8px; justify-content: space-between; }
+.tip .sw { width: 8px; height: 8px; border-radius: 2px; display: inline-block; margin-right: 5px; }
+.empty { color: var(--ink-3); font-style: italic; }
+.filters { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.filters button { font: inherit; font-size: .8rem; background: var(--surface); color: var(--ink-2); border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; cursor: pointer; }
+.filters button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.filters input { font: inherit; padding: 4px 8px; border: 1px solid var(--line); border-radius: var(--r); background: var(--surface); color: var(--ink); min-width: 0; }
+.report { max-width: 78ch; }
+.report h2 { margin: 18px 0 6px; font-size: 1.15rem; }
+.report h3 { margin: 12px 0 4px; }
+.report p, .report li { color: var(--ink); }
+.report ul { padding-left: 1.2em; }
+.report table { margin: 8px 0; }
+.loading { padding: 40px; color: var(--ink-2); }
+@media (max-width: 860px) {
+  .wrap { grid-template-columns: minmax(0, 1fr); gap: 14px; padding-block: 12px 48px; }
+  nav.rail { position: sticky; top: 50px; z-index: 4; flex-direction: row; overflow-x: auto; background: var(--bg); padding-block: 6px; scrollbar-width: none; }
+  nav.rail a { white-space: nowrap; }
+  .cols2 { grid-template-columns: minmax(0, 1fr); }
+  .grid.wide, .grid.three { grid-template-columns: minmax(0, 1fr); }
+  .sig { grid-template-columns: minmax(0, 1fr) 90px; }
+  .sig .ev { grid-column: 1 / -1; }
+  .chips { margin-left: 0; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+
+<header class="top"><div class="top-in">
+  <span class="brand">Liquidity Cycle Monitor</span>
+  <span class="asof" id="asof">Loading…</span>
+  <div class="chips" id="status-chips"></div>
+</div></header>
+<div class="wrap">
+  <nav class="rail" aria-label="Sections"><!--NAV--></nav>
+  <main id="main"><p class="loading">Loading the latest snapshot…</p></main>
+</div>
+
+<script>
+"use strict";
+const TABS = /*TABS*/[];
+const S = { snap: null, reports: [], drawn: new Set() };
+const SVGNS = "http://www.w3.org/2000/svg";
+
+function h(tag, attrs, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (v == null || v === false) continue;
+    if (k === "class") e.className = v; else if (k === "html") e.innerHTML = v;
+    else if (k === "style") e.setAttribute("style", v);
+    else if (k.startsWith("on")) e.addEventListener(k.slice(2), v); else e.setAttribute(k, v === true ? "" : v);
+  }
+  for (const k of kids.flat(Infinity)) { if (k == null || k === false) continue; e.append(k.nodeType ? k : document.createTextNode(String(k))); }
+  return e;
+}
+function sv(tag, attrs) { const e = document.createElementNS(SVGNS, tag); for (const [k, v] of Object.entries(attrs || {})) e.setAttribute(k, v); return e; }
+const isNum = x => typeof x === "number" && isFinite(x);
+function fmt(x, d) {
+  if (!isNum(x)) return "—";
+  if (d == null) d = Math.abs(x) >= 1000 ? 0 : Math.abs(x) >= 100 ? 1 : 2;
+  return x.toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d });
+}
+const signed = (x, d) => !isNum(x) ? "—" : (x > 0 ? "+" : x < 0 ? "−" : "") + fmt(Math.abs(x), d);
+function money(x, units) {
+  if (!isNum(x)) return "—";
+  if (units && units.startsWith("USD bn") && Math.abs(x) >= 1000) return "$" + fmt(x / 1000, 2) + "tn";
+  if (units && units.startsWith("USD bn")) return "$" + fmt(x, 0) + "bn";
+  return fmt(x);
+}
+const ord = n => { n = Math.round(n); const s = (n % 100 >= 11 && n % 100 <= 13) ? "th" : ({ 1: "st", 2: "nd", 3: "rd" }[n % 10] || "th"); return n + s; };
+const TONE = { good: ["p-good", "Supportive"], bad: ["p-bad", "Headwind"], mixed: ["p-warn", "Mixed"], neutral: ["p-neutral", "Neutral"], na: ["p-neutral", "No data"] };
+const FRESH = { fresh: ["p-good", "Fresh"], due: ["p-neutral", "Due"], stale: ["p-warn", "Stale"], missing: ["p-bad", "Missing"], failed: ["p-bad", "Failed"], unavailable: ["p-neutral", "Unavailable"] };
+const STATE = { adding: ["p-good", "Adding"], draining: ["p-bad", "Draining"], neutral: ["p-neutral", "Neutral"], "n/a": ["p-neutral", "No data"] };
+const VERDICT = { confirm: ["p-good", "Confirms"], diverge: ["p-warn", "Diverges"], neutral: ["p-neutral", "Neutral"], "n/a": ["p-neutral", "No data"],
+  "well paid": ["p-good", "Well paid"], "fairly paid": ["p-neutral", "Fairly paid"], "poorly paid": ["p-bad", "Poorly paid"], "short history": ["p-neutral", "Short history"],
+  "insurance cheap": ["p-good", "Insurance cheap"], "insurance pricey": ["p-warn", "Insurance pricey"], normal: ["p-neutral", "Normal"],
+  Supported: ["p-good", "Supported"], "Partly supported": ["p-warn", "Partly supported"], "Not supported": ["p-bad", "Not supported"], "Not testable": ["p-neutral", "Not testable"],
+  high: ["p-good", "High"], medium: ["p-warn", "Medium"], low: ["p-neutral", "Low"] };
+const pill = (map, key, extra) => { const [c, t] = map[key] || ["p-neutral", key || "—"]; return h("span", { class: "pill " + c }, extra || t); };
+const stancePill = st => pill({ Attractive: ["p-good"], "Mildly attractive": ["p-good"], Neutral: ["p-neutral"], "Mildly unattractive": ["p-serious"], Unattractive: ["p-bad"] }, st, st);
+const TIMING = { leading: "Leads", coincident: "Moves with", lagging: "Lags" };
+const SRC = { fred: "FRED", treasury: "US Treasury", nyfed: "NY Fed", ecb: "ECB", boe: "Bank of England", bis: "BIS", sec: "SEC filings", tiingo: "Tiingo", files: "Research file", derived: "Model" };
+
+function dbar(score, max = 2) {
+  const v = Math.max(-max, Math.min(max, score || 0)), w = Math.abs(v) / max * 50;
+  return h("div", { class: "dbar", role: "img", "aria-label": "score " + signed(score) },
+    h("div", { class: "mid" }), h("div", { class: "fill", style: `left:${v >= 0 ? 50 : 50 - w}%;width:${w}%;background:${v >= 0 ? "var(--pos)" : "var(--neg)"}` }));
+}
+
+/* ---------- summaries (every metric carries source, dates, frequency, freshness) ---------- */
+function metaText(s) {
+  const fs = s.first_seen ? ` · first seen ${s.first_seen}` : "";
+  return `${s.what || ""} ${s.why || ""} Source: ${SRC[s.source] || s.source} ${s.source_id || ""} · ${{ D: "daily", W: "weekly", M: "monthly", Q: "quarterly" }[s.freq] || s.freq} · observation ${s.obs_date || "—"}${fs} · ${s.kind === "estimate" ? "model estimate" : "published data"}.`;
+}
+function summaryTable(rows) {
+  rows = (rows || []).filter(Boolean);
+  if (!rows.length) return h("p", { class: "empty" }, "No data.");
+  const primary = r => { const c = r.changes || {}; const k = { D: "13w", W: "13w", M: "3m", Q: "6m" }[r.freq]; return [k, c[k]]; };
+  return h("div", { class: "tbl-wrap" }, h("table", {},
+    h("thead", {}, h("tr", {}, h("th", {}, "Indicator"), h("th", { class: "n" }, "Latest"), h("th", {}, "Units"), h("th", { class: "n" }, "Change"),
+      h("th", { class: "n" }, "vs year ago"), h("th", { class: "n" }, "Percentile"), h("th", {}, "Cycle timing"), h("th", {}, "Period"), h("th", {}, "Status"))),
+    h("tbody", {}, rows.map(r => {
+      const [k, c] = primary(r);
+      return h("tr", {},
+        h("td", {}, h("details", {}, h("summary", {}, r.short || r.name, r.display_only ? h("span", { class: "tag", style: "margin-left:6px" }, "shown, not counted") : null), h("p", {}, metaText(r)))),
+        h("td", { class: "n" }, money(r.latest, r.units)), h("td", { class: "small muted" }, r.units),
+        h("td", { class: "n" }, c == null ? "—" : `${signed(c)} (${k})`),
+        h("td", { class: "n" }, r.yoy == null ? "—" : signed(r.yoy, 1) + "%"),
+        h("td", { class: "n" }, r.pctile == null ? "—" : `${ord(r.pctile)} / ${fmt(r.pctile_years, 0)}y`),
+        h("td", { class: "small" }, TIMING[r.signal] || r.signal),
+        h("td", { class: "small" }, r.period || r.obs_date || "—"),
+        h("td", {}, pill(FRESH, r.freshness)));
+    }))));
+}
+function signalList(sigs) {
+  return h("div", {}, (sigs || []).map(s => h("div", { class: "sig" },
+    h("div", {}, h("div", { style: "font-weight:600" }, s.label), h("div", { class: "tags" }, h("span", { class: "tag" }, s.kind), h("span", { class: "tag" }, s.horizon))),
+    dbar(s.score), h("div", { class: "ev" }, s.available === false ? h("span", { class: "muted" }, s.evidence) : s.evidence))));
+}
+
+/* ---------- charts: one y-axis, thin marks, hover tooltip, legend + direct labels ---------- */
+function niceTicks(lo, hi, n = 5) {
+  const span = hi - lo || Math.abs(hi) || 1, step0 = span / n, mag = Math.pow(10, Math.floor(Math.log10(step0)));
+  const step = [1, 2, 2.5, 5, 10].map(m => m * mag).find(s => s >= step0) || 10 * mag;
+  const t = []; for (let v = Math.ceil(lo / step) * step; v <= hi + step * 1e-9; v += step) t.push(+v.toFixed(10));
+  return t;
+}
+function chartCard(spec) {
+  const series = spec.series.map((s, i) => ({ label: s.label, color: `var(--s${i % 8 + 1})`, pts: (S.snap.series[s.data_key] || []).map(([d, v]) => [Date.parse(d), v]) }))
+    .filter(s => s.pts.length);
+  const box = h("div", { class: "card chart" });
+  box.append(h("h4", {}, spec.title));
+  if (!series.length) { box.append(h("p", { class: "empty" }, "No data yet for this chart (source unavailable)."), h("p", { class: "cap" }, "Source: " + spec.source)); return box; }
+  const last = Math.max(...series.map(s => s.pts[s.pts.length - 1][0]));
+  const first = Math.min(...series.map(s => s.pts[0][0]));
+  box.append(h("div", { class: "sub" }, `${spec.units} · ${new Date(first).getUTCFullYear()}–${new Date(last).toISOString().slice(0, 10)}`));
+  if (series.length > 1) box.append(h("div", { class: "legend" }, series.map(s => h("span", {}, h("i", { style: `background:${s.color}` }), s.label))));
+  const holder = h("div", { style: "position:relative" });
+  box.append(holder, h("p", { class: "cap" }, [`Source: ${spec.source}.`, spec.note ? ` ${spec.note}.` : "", spec.recessions ? " Shaded: US recessions (NBER)." : ""].join("")));
+  const draw = () => drawSeries(holder, spec, series);
+  requestAnimationFrame(draw);
+  let t; new ResizeObserver(() => { clearTimeout(t); t = setTimeout(draw, 120); }).observe(holder);
+  return box;
+}
+function drawSeries(holder, spec, series) {
+  const W = holder.clientWidth; if (!W) return;
+  holder.innerHTML = "";
+  const direct = series.length <= 4 && W > 520, H = 210, m = { l: 44, r: direct ? 110 : 10, t: 8, b: 22 };
+  const xs = series.flatMap(s => s.pts.map(p => p[0])), ys = series.flatMap(s => s.pts.map(p => p[1]));
+  const x0 = Math.min(...xs), x1 = Math.max(...xs);
+  let y0 = Math.min(...ys), y1 = Math.max(...ys); if (spec.kind === "bar") y0 = Math.min(0, y0);
+  const pad = (y1 - y0) * 0.06 || 1; y0 -= y0 === 0 ? 0 : pad; y1 += pad;
+  const ticks = niceTicks(y0, y1); y0 = Math.min(y0, ticks[0]); y1 = Math.max(y1, ticks[ticks.length - 1]);
+  const X = x => m.l + (x - x0) / (x1 - x0 || 1) * (W - m.l - m.r), Y = y => m.t + (1 - (y - y0) / (y1 - y0 || 1)) * (H - m.t - m.b);
+  const svg = sv("svg", { viewBox: `0 0 ${W} ${H}`, height: H, role: "img", "aria-label": spec.title });
+  if (spec.recessions) for (const [a, b] of S.snap.meta.recessions || []) {
+    const ta = Date.parse(a), tb = Date.parse(b); if (tb < x0 || ta > x1) continue;
+    svg.append(sv("rect", { x: X(Math.max(ta, x0)), y: m.t, width: Math.max(1, X(Math.min(tb, x1)) - X(Math.max(ta, x0))), height: H - m.t - m.b, fill: "var(--rec)" }));
+  }
+  for (const t of ticks) {
+    svg.append(sv("line", { x1: m.l, x2: W - m.r, y1: Y(t), y2: Y(t), stroke: t === 0 ? "var(--ink-3)" : "var(--grid)", "stroke-width": 1 }));
+    const tx = sv("text", { x: m.l - 6, y: Y(t) + 3.5, "text-anchor": "end" }); tx.textContent = fmt(t, Math.abs(ticks[1] - ticks[0]) < 1 ? 2 : 0); svg.append(tx);
+  }
+  const y0yr = new Date(x0).getUTCFullYear(), y1yr = new Date(x1).getUTCFullYear(), span = y1yr - y0yr;
+  const every = span > 24 ? 5 : span > 12 ? 2 : 1;
+  for (let yr = y0yr + 1; yr <= y1yr; yr++) {
+    if (yr % every) continue; const t = Date.UTC(yr, 0, 1); if (t < x0 || t > x1) continue;
+    const tx = sv("text", { x: X(t), y: H - 6, "text-anchor": "middle" }); tx.textContent = span > 1 ? yr : new Date(t).toISOString().slice(0, 7); svg.append(tx);
+  }
+  if (spec.kind === "bar") {
+    const n = series.length, dates = [...new Set(xs)].sort((a, b) => a - b), bw = Math.max(2, (W - m.l - m.r) / dates.length / n - 2);
+    series.forEach((s, i) => s.pts.forEach(([d, v]) => {
+      const x = X(d) - (n * (bw + 2)) / 2 + i * (bw + 2), yA = Y(Math.max(0, v)), yB = Y(Math.min(0, v));
+      svg.append(sv("rect", { x, y: yA, width: bw, height: Math.max(1, yB - yA), fill: s.color, rx: Math.min(2, bw / 3) }));
+    }));
+  } else {
+    for (const s of series) {
+      const d = s.pts.map((p, i) => (i ? "L" : "M") + X(p[0]).toFixed(1) + "," + Y(p[1]).toFixed(1)).join("");
+      svg.append(sv("path", { d, fill: "none", stroke: s.color, "stroke-width": 2, "stroke-linejoin": "round", "stroke-linecap": "round" }));
+    }
+  }
+  if (direct) {
+    const lab = series.map(s => ({ s, y: Y(s.pts[s.pts.length - 1][1]) })).sort((a, b) => a.y - b.y);
+    for (let i = 1; i < lab.length; i++) if (lab[i].y - lab[i - 1].y < 13) lab[i].y = lab[i - 1].y + 13;
+    for (const L of lab) {
+      const p = L.s.pts[L.s.pts.length - 1];
+      svg.append(sv("circle", { cx: X(p[0]), cy: Y(p[1]), r: 3.5, fill: L.s.color, stroke: "var(--surface)", "stroke-width": 2 }));
+      const tx = sv("text", { x: W - m.r + 8, y: Math.min(H - m.b, Math.max(m.t + 8, L.y + 4)), class: "dl" });
+      tx.textContent = (L.s.label.length > 16 ? L.s.label.slice(0, 15) + "…" : L.s.label) + " " + fmt(p[1]); svg.append(tx);
+    }
+  }
+  const cross = sv("line", { y1: m.t, y2: H - m.b, stroke: "var(--ink-3)", "stroke-width": 1, "stroke-dasharray": "3 3", visibility: "hidden" });
+  svg.append(cross);
+  const hit = sv("rect", { x: m.l, y: 0, width: Math.max(1, W - m.l - m.r), height: H, fill: "transparent" });
+  svg.append(hit);
+  const tip = h("div", { class: "tip", hidden: true });
+  holder.append(svg, tip);
+  const near = (pts, t) => { let lo = 0, hi = pts.length - 1; while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (pts[mid][0] < t) lo = mid; else hi = mid; } return Math.abs(pts[lo][0] - t) < Math.abs(pts[hi][0] - t) ? pts[lo] : pts[hi]; };
+  const move = ev => {
+    const r = svg.getBoundingClientRect(), px = (ev.clientX - r.left) * (W / r.width), t = x0 + (px - m.l) / (W - m.l - m.r) * (x1 - x0);
+    const rows = series.map(s => ({ s, p: near(s.pts, t) })), d0 = rows[0].p[0];
+    cross.setAttribute("x1", X(d0)); cross.setAttribute("x2", X(d0)); cross.setAttribute("visibility", "visible");
+    tip.innerHTML = ""; tip.append(h("div", { class: "muted" }, new Date(d0).toISOString().slice(0, 10)),
+      rows.map(({ s, p }) => h("div", { class: "row" }, h("span", {}, h("span", { class: "sw", style: `background:${s.color}` }), s.label), h("b", {}, fmt(p[1])))));
+    tip.hidden = false;
+    const left = Math.min(r.width - tip.offsetWidth - 4, Math.max(0, X(d0) * r.width / W + 12));
+    tip.style.left = left + "px"; tip.style.top = "6px";
+  };
+  hit.addEventListener("pointermove", move);
+  hit.addEventListener("pointerleave", () => { tip.hidden = true; cross.setAttribute("visibility", "hidden"); });
+}
+const chartsFor = sec => S.snap.charts.filter(c => c.section === sec);
+const chartGrid = specs => h("div", { class: "grid wide" }, specs.map(chartCard));
+
+/* ---------- sections ---------- */
+function sectionHead(title, lede) { return h("div", {}, h("h2", {}, title), lede ? h("p", { class: "lede", style: "margin-top:4px" }, lede) : null); }
+
+function viewOverview(sn) {
+  const ex = sn.executive, sc = sn.scenarios, t = sc.text, f = sc.final;
+  const changes = sn.changes.items || [];
+  return [
+    sectionHead("Macro outlook", "The current read on the cycle, liquidity and where risk is paid. Looks 12–18 months ahead."),
+    h("div", { class: "card thesis" }, h("div", { class: "eyebrow" }, "Current thesis"), h("ul", {}, ex.thesis.map(x => h("li", {}, x)))),
+    h("div", { class: "card" }, h("div", { class: "eyebrow" }, "Scenarios (probabilities sum to 100%)"),
+      h("div", { class: "scen-bar", role: "img", "aria-label": `Base ${f.base}%, bull ${f.bull}%, bear ${f.bear}%` },
+        ["base", "bull", "bear"].map(k => h("div", { class: "sc-" + k, style: `flex:${f[k]}` }, `${k[0].toUpperCase() + k.slice(1)} ${fmt(f[k], 0)}%`))),
+      sc.override ? h("p", { class: "small muted" }, `Analyst adjustment applied (model: base ${sc.model.base}%, bull ${sc.model.bull}%, bear ${sc.model.bear}%): ${sc.override.reason}`) : null,
+      h("div", { class: "grid three" }, ["base", "bull", "bear"].map(k => h("div", { class: "card", style: "background:var(--surface-2);border:0" },
+        h("h4", {}, `${t[k].name} · ${fmt(t[k].probability, 0)}%`),
+        h("p", { class: "small" }, t[k].economy), h("p", { class: "small" }, t[k].markets),
+        h("details", {}, h("summary", {}, "Assumptions and triggers"),
+          h("ul", { class: "plain small" }, h("li", {}, "Liquidity: " + t[k].liquidity), h("li", {}, "Fed: " + t[k].central_bank), h("li", {}, "Consumer: " + t[k].consumer)),
+          h("p", { class: "eyebrow", style: "margin-top:8px" }, "Would confirm"), h("ul", { class: "plain small" }, t[k].confirm.map(x => h("li", {}, x))),
+          h("p", { class: "eyebrow", style: "margin-top:8px" }, "Would invalidate"), h("ul", { class: "plain small" }, t[k].invalidate.map(x => h("li", {}, x))))))),
+      h("details", {}, h("summary", {}, "How the probabilities are set"), h("p", { class: "small" }, sc.method),
+        h("div", { class: "tbl-wrap" }, h("table", {}, h("thead", {}, h("tr", {}, h("th", {}, "Evidence group"), h("th", { class: "n" }, "Average score"), h("th", { class: "n" }, "Push to bull"))),
+          h("tbody", {}, sc.contributions.map(c => h("tr", {}, h("td", {}, c.group), h("td", { class: "n" }, signed(c.score)), h("td", { class: "n" }, signed(c.bull, 2))))))))),
+    h("div", { class: "grid" }, ex.tiles.map(ti => h("div", { class: "tile t-" + ti.tone }, h("div", { class: "lab" }, ti.label), h("div", { class: "val" }, ti.value), pill(TONE, ti.tone), h("div", { class: "det" }, ti.detail)))),
+    h("div", { class: "cols2" },
+      h("div", { class: "card" }, h("h3", {}, "Where risk is paid"), ex.risk_rewarded.length ? h("ul", { class: "plain" }, ex.risk_rewarded.map(x => h("li", {}, x))) : h("p", { class: "empty" }, "Nowhere stands out.")),
+      h("div", { class: "card" }, h("h3", {}, "Where it isn't"), ex.risk_not_rewarded.length ? h("ul", { class: "plain" }, ex.risk_not_rewarded.map(x => h("li", {}, x))) : h("p", { class: "empty" }, "Nothing stands out."))),
+    h("div", { class: "cols2" },
+      h("div", { class: "card" }, h("h3", {}, "What changed"), h("p", { class: "small muted" }, sn.changes.previous_date ? `Since ${sn.changes.previous_date}` : "First run — nothing to compare yet."),
+        changes.length ? h("ul", { class: "plain" }, changes.slice(0, 10).map(c => h("li", {}, h("b", {}, c.field + ": "), `${c.before} → ${c.after}. `, h("span", { class: "muted" }, c.why || "")))) : null),
+      h("div", { class: "card" }, h("h3", {}, "What would break the base case"), h("ul", { class: "plain" }, t.base.invalidate.map(x => h("li", {}, x))))),
+    chartGrid(S.snap.charts.filter(c => c.id === "liq_split")),
+  ];
+}
+
+function viewCentralBanks(sn) {
+  const cb = sn.central_banks;
+  return [
+    sectionHead("Central banks", "What the Fed and other central banks are doing, what markets expect, and whether it is reaching financial conditions."),
+    h("div", { class: "card" }, h("h3", {}, "Policy rates"), h("div", { class: "tbl-wrap" }, h("table", {},
+      h("thead", {}, h("tr", {}, h("th", {}, "Central bank"), h("th", { class: "n" }, "Rate"), h("th", { class: "n" }, "12-month change"), h("th", {}, "As of"), h("th", {}, "Status"))),
+      h("tbody", {}, cb.rates_table.map(r => h("tr", {}, h("td", {}, r.bank), h("td", { class: "n" }, fmt(r.rate) + "%"), h("td", { class: "n" }, signed(r.change_12m) + "pp"), h("td", {}, r.obs_date), h("td", {}, pill(FRESH, r.freshness))))))),
+      h("p", { class: "cap" }, "Sources: Federal Reserve, ECB, Bank of England (IADB), OECD via FRED.")),
+    h("div", { class: "card" }, h("h3", {}, "Stance and transmission"), signalList(cb.signals), cb.notes.length ? h("ul", { class: "plain small" }, cb.notes.map(x => h("li", {}, x))) : null,
+      h("p", { class: "small muted" }, `Assumed neutral real rate: ${fmt(cb.neutral_assumption)}% (estimate).`)),
+    chartGrid(chartsFor("central_banks")),
+    h("details", { class: "card" }, h("summary", {}, "All policy indicators"), summaryTable(cb.summaries)),
+  ];
+}
+
+function pillarCard(p) {
+  const kids = [
+    h("div", { style: "display:flex;flex-wrap:wrap;gap:8px;align-items:center" }, h("h3", {}, p.title), pill(STATE, p.state),
+      h("span", { class: "pill p-accent" }, p.trend), h("span", { class: "small muted num" }, `impulse ${signed(p.impulse)} · 13-week change ${signed(p.accel)}`), pill(FRESH, p.freshness)),
+    h("p", { class: "lede" }, p.blurb),
+    h("ul", { class: "plain" }, p.drivers.map(d => h("li", {}, d))),
+  ];
+  if (p.id === "ai_capex" && p.funding_last4q) {
+    const f = p.funding_last4q;
+    kids.push(h("div", { class: "tbl-wrap" }, h("table", {}, h("thead", {}, h("tr", {}, h("th", {}, "Last 4 quarters, 5 hyperscalers"), h("th", { class: "n" }, "USD bn"))),
+      h("tbody", {}, [["Capex", f.capex], ["Operating cash flow", f.ocf], ["Debt raised", f.debt_issued], ["Finance-lease principal paid", f.lease_principal]].map(([a, b]) => h("tr", {}, h("td", {}, a), h("td", { class: "n" }, fmt(b, 0))))))));
+    if (p.capex_by_firm_4q) kids.push(h("p", { class: "small" }, "Capex by firm, last 4 quarters: " + Object.entries(p.capex_by_firm_4q).map(([k, v]) => `${k} $${fmt(v, 0)}bn`).join(" · ")));
+  }
+  kids.push(chartGrid(chartsFor("pillar:" + p.id)));
+  kids.push(h("details", {}, h("summary", {}, "How this pillar works"),
+    h("ul", { class: "plain small" }, h("li", {}, h("b", {}, "Creates, moves or destroys liquidity? "), p.classification), h("li", {}, h("b", {}, "How it reaches the economy: "), p.transmission), h("li", {}, h("b", {}, "Timing: "), p.timing),
+      h("li", {}, h("b", {}, "Core measure: "), p.core.map(c => c.short).join(", "), ". Impulse = z-score of its 13- and 26-week change vs the last 10 years; above +0.5 adding, below −0.5 draining."))));
+  kids.push(h("details", {}, h("summary", {}, `Indicators (${p.members.length})`), summaryTable([...p.core, ...p.members.filter(m => !p.core.find(c => c.id === m.id))])));
+  return h("div", { class: "card", id: "pillar-" + p.id }, kids);
+}
+
+function viewLiquidity(sn) {
+  const c = sn.liquidity.consolidated;
+  const grp = (label, g, note) => h("div", { class: "tile t-" + (g.state === "adding" ? "good" : g.state === "draining" ? "bad" : "neutral") },
+    h("div", { class: "lab" }, label), h("div", { class: "val num" }, signed(g.composite)), h("div", { style: "display:flex;gap:6px;flex-wrap:wrap" }, pill(STATE, g.state), h("span", { class: "pill p-accent" }, g.trend)), h("div", { class: "det" }, note));
+  return [
+    sectionHead("Liquidity engine", "Where liquidity is being created, destroyed and moved, and whether it is speeding up or slowing down. Scores are z-scores: 0 is normal, ±1 is unusual."),
+    h("div", { class: "grid" },
+      grp("Market liquidity", c.market, "Fed, global and credit spreads. Historically the one that lines up with risk assets."),
+      grp("Economy liquidity", c.economy, "Deficits, bank lending, AI capex. Feeds growth 2–4 quarters out."),
+      grp("All six pillars", c, `Breadth: ${c.breadth.adding} adding, ${c.breadth.draining} draining, ${c.breadth.neutral} neutral.` + (c.excluded.length ? ` Left out (stale): ${c.excluded.join(", ")}.` : ""))),
+    h("p", { class: "small muted" }, c.split_note),
+    chartGrid(S.snap.charts.filter(x => x.section === "liquidity")),
+    h("details", { class: "card" }, h("summary", {}, "How we avoid double counting"), h("ul", { class: "plain small" }, c.rules.map(r => h("li", {}, r)))),
+    sn.liquidity.pillars.map(pillarCard),
+  ];
+}
+
+function viewConsumer(sn) {
+  const c = sn.consumer;
+  return [
+    sectionHead("Consumer & jobs", "Is spending backed by income, or by borrowing and lower saving? Jobs data confirms the cycle; it rarely warns first."),
+    h("div", { class: "card" }, h("div", { style: "display:flex;gap:8px;align-items:center;flex-wrap:wrap" }, h("h3", {}, "How spending is funded"), pill({ "income-funded": ["p-good"], dissaving: ["p-warn"], borrowing: ["p-warn"], stretched: ["p-bad"] }, c.diagnosis, c.diagnosis)),
+      h("p", {}, c.diagnosis_text), h("ul", { class: "plain small" }, c.implications.map(x => h("li", {}, x)))),
+    h("div", { class: "cols2" },
+      h("div", { class: "card" }, h("h3", {}, "Jobs"), signalList(c.labour_signals)),
+      h("div", { class: "card" }, h("h3", {}, "Households"), signalList(c.consumer_signals))),
+    h("div", { class: "card" }, h("h3", {}, "Higher vs lower income"), h("ul", { class: "plain small" }, c.stress.map(x => h("li", {}, x))), h("p", { class: "small muted" }, c.k_shape)),
+    chartGrid(chartsFor("consumer")),
+    h("details", { class: "card" }, h("summary", {}, "All labour indicators"), summaryTable(c.labour)),
+    h("details", { class: "card" }, h("summary", {}, "All consumer indicators"), summaryTable(c.consumer)),
+  ];
+}
+
+function viewCycle(sn) {
+  const cy = sn.cycle, cl = cy.classification;
+  const comp = (title, rows) => h("div", { class: "card" }, h("h3", {}, title), rows.map(r => h("div", { class: "sig" }, h("div", {}, r.label), r.z == null ? h("span", { class: "muted small" }, r.note) : dbar(r.z, 3), h("div", { class: "ev num" }, r.z == null ? "" : `${signed(r.z)} · ${r.obs_date}`))));
+  return [
+    sectionHead("Business cycle", "Leading indicators against current activity. If they disagree, the model says so instead of forcing a label."),
+    h("div", { class: "grid" },
+      h("div", { class: "tile t-" + (cl.mixed ? "mixed" : cl.leading >= 0 ? "good" : "bad") }, h("div", { class: "lab" }, "Phase"), h("div", { class: "val" }, cy.label)),
+      h("div", { class: "tile t-neutral" }, h("div", { class: "lab" }, "Growth / inflation mix"), h("div", { class: "val" }, cl.quadrant)),
+      h("div", { class: "tile t-" + ((cy.recession_prob || 0) > 35 ? "bad" : "neutral") }, h("div", { class: "lab" }, "Recession odds, 12 months (curve model)"), h("div", { class: "val num" }, fmt(cy.recession_prob, 0) + "%")),
+      h("div", { class: "tile t-neutral" }, h("div", { class: "lab" }, "Real GDP, latest quarter (annualised)"), h("div", { class: "val num" }, signed(cy.gdp_qoq_ann, 1) + "%"))),
+    h("div", { class: "cols2" }, comp(`Leading indicators (average ${signed(cl.leading)})`, cy.leading), comp(`Current activity (average ${signed(cl.coincident)})`, cy.coincident)),
+    h("p", { class: "small muted" }, `Bars are z-scores of each indicator's recent change (or level) against 10 years. Spread across indicators: ${fmt(cl.dispersion)} (mixed above 1.1).`),
+    h("div", { class: "card" }, h("h3", {}, "Other evidence"), h("div", { class: "tbl-wrap" }, h("table", {}, h("thead", {}, h("tr", {}, h("th", {}, "Measure"), h("th", { class: "n" }, "Latest"), h("th", { class: "n" }, "vs year ago"), h("th", {}, "As of"), h("th", {}, "Status"))),
+      h("tbody", {}, cy.evidence.map(e => h("tr", {}, h("td", {}, e.label), h("td", { class: "n" }, fmt(e.latest)), h("td", { class: "n" }, e.yoy == null ? "—" : signed(e.yoy, 1) + "%"), h("td", {}, e.obs_date), h("td", {}, pill(FRESH, e.freshness)))))))),
+    h("div", { class: "card" }, h("h3", {}, "Signals"), signalList(cy.signals)),
+    chartGrid(chartsFor("cycle")),
+  ];
+}
+
+function viewInflation(sn) {
+  const f = sn.inflation;
+  return [
+    sectionHead("Inflation", "How fast prices are rising, what is driving it, and how much room it leaves the Fed."),
+    h("div", { class: "grid" },
+      h("div", { class: "tile t-neutral" }, h("div", { class: "lab" }, "Main driver"), h("div", { class: "val" }, f.driver), h("div", { class: "det" }, f.notes[0])),
+      h("div", { class: "tile t-" + (f.fed_flexibility === "high" ? "good" : f.fed_flexibility === "low" ? "bad" : "mixed") }, h("div", { class: "lab" }, "Fed's room to ease"), h("div", { class: "val" }, f.fed_flexibility), h("div", { class: "det" }, f.notes[1] || ""))),
+    h("div", { class: "card" }, h("h3", {}, "Price measures"), h("div", { class: "tbl-wrap" }, h("table", {},
+      h("thead", {}, h("tr", {}, h("th", {}, "Measure"), h("th", { class: "n" }, "12 months"), h("th", { class: "n" }, "6m annualised"), h("th", { class: "n" }, "3m annualised"), h("th", {}, "Latest month"), h("th", {}, "Status"))),
+      h("tbody", {}, f.table.map(r => h("tr", {}, h("td", {}, r.label), h("td", { class: "n" }, fmt(r.yoy, 1) + "%" + (r.yoy_date && r.yoy_date !== (r.obs_date || "").slice(0, 7) ? ` (${r.yoy_date})` : "")), h("td", { class: "n" }, fmt(r["6m"], 1) + "%"), h("td", { class: "n" }, fmt(r["3m"], 1) + "%"), h("td", {}, (r.obs_date || "").slice(0, 7)), h("td", {}, pill(FRESH, r.freshness))))))),
+      h("p", { class: "cap" }, "Sources: BLS, BEA (via FRED). Where a base month was never published (October 2025, government shutdown) the 12-month figure uses the latest month that can be computed.")),
+    h("div", { class: "card" }, h("h3", {}, "Signals and notes"), signalList(f.signals), h("ul", { class: "plain small" }, f.notes.slice(2).map(x => h("li", {}, x)))),
+    chartGrid(chartsFor("inflation")),
+    h("details", { class: "card" }, h("summary", {}, "Expectations, wages, energy and commodities"), summaryTable([...f.expectations, ...f.summaries])),
+  ];
+}
+
+function viewMarkets(sn) {
+  const mk = sn.markets, r = mk.readings;
+  return [
+    sectionHead("Markets & risk", "Is risk being paid for? Do the markets agree with each other and with the macro read?"),
+    h("div", { class: "card" }, h("h3", {}, "Risk compensation"), h("div", { class: "tbl-wrap" }, h("table", {},
+      h("thead", {}, h("tr", {}, h("th", {}, "Asset"), h("th", {}, "Measure"), h("th", { class: "n" }, "Now"), h("th", { class: "n" }, "Percentile"), h("th", {}, "Verdict"))),
+      h("tbody", {}, mk.compensation.map(c => h("tr", {}, h("td", {}, c.asset), h("td", {}, c.measure), h("td", { class: "n" }, c.display || fmt(c.value)), h("td", { class: "n" }, c.pctile == null ? "—" : `${ord(c.pctile)} / ${fmt(c.years, 0)}y`), h("td", {}, pill(VERDICT, c.verdict))))))),
+      h("p", { class: "cap" }, "Percentile vs the stated history window. Equity risk premium: Damodaran (NYU Stern) implied ERP, monthly. Term premium: NY Fed ACM model.")),
+    h("div", { class: "grid" },
+      h("div", { class: "tile t-" + ((r.risk_appetite || 0) > .5 ? "good" : (r.risk_appetite || 0) < -.5 ? "bad" : "neutral") }, h("div", { class: "lab" }, "Risk appetite"), h("div", { class: "val num" }, signed(r.risk_appetite)), h("div", { class: "det" }, "VIX, credit-spread trend, 3-month stock return, bitcoin.")),
+      h("div", { class: "tile t-neutral" }, h("div", { class: "lab" }, "Yield curve, last 13 weeks"), h("div", { class: "val" }, mk.curve_shape), h("div", { class: "det num" }, `10y ${signed(r.ten_change_bp, 0)}bp · 10y−2y ${signed(r.curve_change_bp, 0)}bp`)),
+      h("div", { class: "tile t-neutral" }, h("div", { class: "lab" }, "Stocks"), h("div", { class: "val num" }, signed(r.spx_3m, 1) + "% (3m)"), h("div", { class: "det num" }, `12m ${signed(r.spx_12m, 1)}% · from 1-year high ${signed(r.spx_drawdown, 1)}%`))),
+    h("div", { class: "card" }, h("h3", {}, "Cross-asset check"), h("div", { class: "tbl-wrap" }, h("table", {},
+      h("thead", {}, h("tr", {}, h("th", {}, "Question"), h("th", {}, "Answer"), h("th", {}, "What it means"))),
+      h("tbody", {}, sn.cross_asset.map(x => h("tr", {}, h("td", {}, h("details", {}, h("summary", {}, x.question), h("p", { class: "mono" }, x.observed))), h("td", {}, pill(VERDICT, x.verdict)), h("td", { class: "small" }, x.meaning))))))),
+    mk.sectors.length ? h("div", { class: "card" }, h("h3", {}, "Sector leadership (vs S&P 500)"), h("div", { class: "tbl-wrap" }, h("table", {}, h("thead", {}, h("tr", {}, h("th", {}, "Sector"), h("th", { class: "n" }, "3 months"), h("th", { class: "n" }, "12 months"))),
+      h("tbody", {}, mk.sectors.map(s => h("tr", {}, h("td", {}, `${s.name} (${s.ticker})`), h("td", { class: "n" }, signed(s.rel_3m, 1) + "pp"), h("td", { class: "n" }, signed(s.rel_12m, 1) + "pp"))))))) :
+      h("div", { class: "card" }, h("h3", {}, "Sector leadership"), h("p", { class: "empty" }, "Needs the Tiingo price feed, which isn't connected yet. Breadth, small-cap and gold checks are also waiting on it.")),
+    h("div", { class: "card" }, h("h3", {}, "Signals"), signalList(mk.signals)),
+    chartGrid(chartsFor("markets")),
+    h("details", { class: "card" }, h("summary", {}, "All market indicators"), summaryTable(mk.summaries)),
+  ];
+}
+
+function assetTable(rows, withPriced) {
+  return h("div", { class: "tbl-wrap" }, h("table", {}, h("thead", {}, h("tr", {}, h("th", {}, "Asset"), h("th", {}, "Score (−2 to +2)"), h("th", {}, "Stance"), h("th", {}, "Why"))),
+    h("tbody", {}, rows.map(a => h("tr", {},
+      h("td", {}, h("details", {}, h("summary", {}, a.asset),
+        h("p", {}, h("b", {}, "Thesis: "), a.thesis), withPriced ? h("p", {}, h("b", {}, "Market expects: "), a.priced_in) : null,
+        h("p", {}, h("b", {}, "Would confirm: "), a.confirmation), h("p", {}, h("b", {}, "Would invalidate: "), a.invalidation),
+        h("p", {}, h("b", {}, "Contributions: "), a.contributions.map(c => `${c.label} ${signed(c.contribution)}`).join(" · ")))),
+      h("td", { style: "min-width:140px" }, h("div", { style: "display:flex;gap:8px;align-items:center" }, h("div", { style: "flex:1" }, dbar(a.score)), h("span", { class: "num small" }, signed(a.score)))),
+      h("td", {}, stancePill(a.stance)), h("td", { class: "small" }, a.why))))));
+}
+function viewOutlook(sn) {
+  const al = sn.allocation, F = al.factors;
+  const names = { liquidity: "Market liquidity", growth: "Growth ahead", inflation: "Inflation rising", real_rates: "Real yields falling", credit: "Credit easing", dollar: "Dollar weakening", ai: "AI capex accelerating" };
+  return [
+    sectionHead("Outlook & allocation", "Which assets the current macro mix favours or works against. Scores explain the reasoning; they are not buy or sell calls."),
+    h("div", { class: "card" }, h("h3", {}, "Macro forces now"), Object.entries(F).map(([k, v]) => h("div", { class: "sig" }, h("div", {}, names[k] || k), dbar(v), h("div", { class: "ev num" }, v == null ? "no data" : signed(v)))),
+      h("p", { class: "small muted" }, al.method)),
+    h("div", { class: "card" }, h("h3", {}, "Asset classes"), assetTable([...al.assets].sort((a, b) => b.score - a.score), true)),
+    h("div", { class: "card" }, h("h3", {}, "Sectors and industries"), assetTable(al.sectors, true)),
+  ];
+}
+
+function viewResearch(sn) {
+  const R = sn.research || {}, an = R.analogues || {};
+  const pr = (R.principles || []).map(p => h("div", { class: "card" },
+    h("div", { style: "display:flex;gap:8px;align-items:center;flex-wrap:wrap" }, h("h3", {}, p.principle), pill(VERDICT, p.verdict)),
+    h("p", {}, p.plain), h("p", { class: "small muted" }, "Test: " + p.test),
+    p.by_pillar ? h("details", {}, h("summary", {}, "By pillar"), h("div", { class: "tbl-wrap" }, h("table", {}, h("thead", {}, h("tr", {}, h("th", {}, "Pillar"), h("th", {}, "Since"), h("th", { class: "n" }, "Picked above-average periods"), h("th", { class: "n" }, "After positive"), h("th", { class: "n" }, "After negative"))),
+      h("tbody", {}, Object.entries(p.by_pillar).map(([k, v]) => h("tr", {}, h("td", {}, k.replace("_", " ")), h("td", {}, v.start), h("td", { class: "n" }, fmt(v.hit_rate_excess, 0) + "%"), h("td", { class: "n" }, signed(v.mean_when_positive, 1) + "%"), h("td", { class: "n" }, signed(v.mean_when_negative, 1) + "%"))))))) : null,
+    p.failures && p.failures.length ? h("details", {}, h("summary", {}, `Where it failed (${p.failures.length})`), h("ul", { class: "plain small" }, p.failures.map(f => h("li", {}, `${f.start}${f.end !== f.start ? "–" + f.end : ""}: ${f.kind}`)))) : null));
+  return [
+    sectionHead("Research", "Testing the ideas behind the model against history, including where they fail. History rhymes; it does not repeat."),
+    h("div", {}, h("h3", { style: "margin-bottom:8px" }, "Do the Druckenmiller principles hold?"), h("div", { class: "grid wide" }, pr)),
+    h("div", { class: "card" }, h("h3", {}, "How long policy takes to work"), h("div", { class: "tbl-wrap" }, h("table", {},
+      h("thead", {}, h("tr", {}, h("th", {}, "Channel"), h("th", {}, "Driver → target"), h("th", { class: "n" }, "Best lag (months)"), h("th", { class: "n" }, "Likely range"), h("th", { class: "n" }, "Correlation"), h("th", {}, "Confidence"))),
+      h("tbody", {}, (R.lags || []).map(l => h("tr", {}, h("td", {}, l.channel), h("td", { class: "small" }, `${l.driver} → ${l.target}`), h("td", { class: "n" }, l.best_lag_months ?? "—"), h("td", { class: "n" }, l.ci_months && l.ci_months[0] != null ? `${l.ci_months[0]}–${l.ci_months[1]}` : "—"), h("td", { class: "n" }, signed(l.corr)), h("td", {}, pill(VERDICT, l.confidence))))))),
+      h("p", { class: "cap" }, "Monthly data since 1985. The lag is the one with the strongest correlation of the expected sign; the range is the 5–95% band from a block bootstrap. Correlation is not causation; low-confidence rows are weak evidence.")),
+    h("div", { class: "card" }, h("h3", {}, "Closest historical matches"), h("p", {}, an.summary || ""), h("div", { class: "tbl-wrap" }, h("table", {},
+      h("thead", {}, h("tr", {}, h("th", {}, "Month"), h("th", { class: "n" }, "Distance"), h("th", { class: "n" }, "Stocks next 12m"), h("th", { class: "n" }, "Baa spread change"), h("th", { class: "n" }, "10y yield change"), h("th", {}, "Recession within 12m"), h("th", {}, "Most similar on"))),
+      h("tbody", {}, (an.nearest || []).map(n => h("tr", {}, h("td", {}, n.date.slice(0, 7)), h("td", { class: "n" }, fmt(n.distance)), h("td", { class: "n" }, signed(n.outcomes.stocks_12m_pct, 1) + "%"), h("td", { class: "n" }, signed(n.outcomes.baa_change_pp)), h("td", { class: "n" }, signed(n.outcomes.ten_year_change_pp)), h("td", {}, n.outcomes.recession_within_12m == null ? "—" : n.outcomes.recession_within_12m ? "Yes" : "No"), h("td", { class: "small" }, (n.similar || []).join(", "))))))),
+      h("p", { class: "cap" }, an.method || "")),
+    h("div", { class: "card" }, h("h3", {}, "Named regimes"), h("div", { class: "tbl-wrap" }, h("table", {},
+      h("thead", {}, h("tr", {}, h("th", {}, "Regime"), h("th", { class: "n" }, "Distance from now"), h("th", { class: "n" }, "Stocks next 12m"), h("th", {}, "Similar"), h("th", {}, "Different"), h("th", {}, "Why it matters"))),
+      h("tbody", {}, (an.named || []).map(n => h("tr", {}, h("td", {}, `${n.name} (${n.date.slice(0, 7)})`), h("td", { class: "n" }, fmt(n.distance)), h("td", { class: "n" }, signed(n.outcomes.stocks_12m_pct, 1) + "%"), h("td", { class: "small" }, n.similar.join(", ")), h("td", { class: "small" }, n.different.join(", ")), h("td", { class: "small" }, n.why_relevant))))))),
+    an.comparison_table ? h("details", { class: "card" }, h("summary", {}, "Feature comparison: now vs named regimes"), (() => {
+      const cols = Object.keys(an.comparison_table), feats = Object.keys(an.features || {});
+      return h("div", { class: "tbl-wrap" }, h("table", {}, h("thead", {}, h("tr", {}, h("th", {}, "Feature"), cols.map(c => h("th", { class: "n" }, c)))),
+        h("tbody", {}, feats.map(f => h("tr", {}, h("td", {}, an.features[f]), cols.map(c => h("td", { class: "n" }, fmt(an.comparison_table[c][f]))))))));
+    })()) : null,
+  ];
+}
+
+function viewReports() {
+  if (!S.reports.length) return [sectionHead("Weekly reports"), h("p", { class: "empty" }, "No weekly report yet. The first is written on the next scheduled run.")];
+  const body = h("div", { class: "card report" });
+  const show = i => { body.innerHTML = S.reports[i].html; list.querySelectorAll("button").forEach((b, j) => b.setAttribute("aria-pressed", String(i === j))); };
+  const list = h("div", { class: "filters" }, S.reports.map((r, i) => h("button", { type: "button", onclick: () => show(i) }, r.date)));
+  setTimeout(() => show(0));
+  return [sectionHead("Weekly reports", "Built from the same snapshot as this dashboard. Newest first."), list, body];
+}
+
+function viewData(sn) {
+  const dq = sn.data_quality, rows = dq.rows;
+  const tbody = h("tbody");
+  let status = "all", q = "";
+  const paint = () => {
+    tbody.innerHTML = "";
+    rows.filter(r => (status === "all" || r.status === status) && (!q || (r.name + r.id + r.source_id).toLowerCase().includes(q))).forEach(r => tbody.append(h("tr", {},
+      h("td", {}, h("details", {}, h("summary", {}, r.name), h("p", {}, `${r.id} · ${SRC[r.source] || r.source} ${r.source_id} · ${r.kind}${r.error ? " · " + r.error : ""}`))),
+      h("td", {}, SRC[r.source] || r.source), h("td", {}, { D: "Daily", W: "Weekly", M: "Monthly", Q: "Quarterly" }[r.freq]), h("td", {}, r.obs_date || "—"), h("td", {}, r.first_seen || "—"), h("td", {}, r.last_fetch || "—"), h("td", {}, TIMING[r.signal]), h("td", {}, pill(FRESH, r.status)))));
+  };
+  const btns = h("div", { class: "filters" }, ["all", ...Object.keys(dq.counts)].map(s => h("button", { type: "button", "aria-pressed": String(s === "all"),
+    onclick: e => { status = s; btns.querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", String(b === e.currentTarget))); paint(); } }, s === "all" ? `All (${rows.length})` : `${(FRESH[s] || [0, s])[1]} (${dq.counts[s]})`)),
+    h("input", { id: "data-search", type: "search", placeholder: "Search series", "aria-label": "Search series", oninput: e => { q = e.target.value.toLowerCase(); paint(); } }));
+  paint();
+  return [
+    sectionHead("Data & methods", "Every series, where it comes from, when it was observed and when we first saw it."),
+    h("div", { class: "card" }, h("h3", {}, "How to read dates and status"), h("ul", { class: "plain small" },
+      h("li", {}, h("b", {}, "Observation date: "), "the period the number describes (e.g. October for October payrolls)."),
+      h("li", {}, h("b", {}, "First seen: "), "when this model first downloaded that value — our record of the release. Every revision is kept."),
+      h("li", {}, h("b", {}, "Fresh / Due / Stale: "), "fresh = next release not yet expected; due = expected now or slightly late; stale = well past its normal release. Stale inputs are left out of composites."),
+      h("li", {}, h("b", {}, "Market vs released data: "), "market prices (daily close) update every trading day; economic releases update on their own calendars."),
+      h("li", {}, h("b", {}, "Estimates: "), "anything computed by the model (net liquidity, impulses, implied rate path, recession odds) is labelled an estimate."),
+      sn.meta.mode === "as_of" ? h("li", {}, h("b", {}, "Historical run: "), sn.meta.note) : null)),
+    h("div", { class: "card" }, h("h3", {}, "All series"), btns, h("div", { class: "tbl-wrap" }, h("table", {},
+      h("thead", {}, h("tr", {}, h("th", {}, "Series"), h("th", {}, "Source"), h("th", {}, "Frequency"), h("th", {}, "Observation"), h("th", {}, "First seen"), h("th", {}, "Last checked"), h("th", {}, "Cycle timing"), h("th", {}, "Status"))), tbody))),
+  ];
+}
+
+const VIEWS = { overview: viewOverview, "central-banks": viewCentralBanks, liquidity: viewLiquidity, consumer: viewConsumer, cycle: viewCycle,
+  inflation: viewInflation, markets: viewMarkets, outlook: viewOutlook, research: viewResearch, reports: viewReports, data: viewData };
+
+function route() {
+  const id = (location.hash || "#overview").slice(1), view = VIEWS[id] ? id : "overview";
+  document.querySelectorAll("nav.rail a").forEach(a => a.setAttribute("aria-current", a.getAttribute("href") === "#" + view ? "page" : "false"));
+  const main = document.getElementById("main");
+  main.innerHTML = "";
+  const sec = h("section", { class: "view", id: "view-" + view });
+  try { sec.append(...VIEWS[view](S.snap).flat(Infinity).filter(Boolean)); }
+  catch (e) { console.error(e); sec.append(h("p", { class: "empty" }, "This section could not be drawn: " + e.message)); }
+  main.append(sec);
+  window.scrollTo({ top: 0 });
+}
+
+async function boot() {
+  try {
+    const [snap, reps] = await Promise.all([fetch("snapshot.json").then(r => r.json()), fetch("reports.json").then(r => r.ok ? r.json() : []).catch(() => [])]);
+    S.snap = snap; S.reports = reps || [];
+  } catch (e) {
+    document.getElementById("main").innerHTML = "";
+    document.getElementById("main").append(h("p", { class: "empty" }, "Could not load snapshot.json. Open this page through a web server (python -m http.server -d site) or the published link."));
+    return;
+  }
+  const m = S.snap.meta, dq = S.snap.data_quality.counts;
+  document.getElementById("asof").textContent = `Data as of ${m.as_of}${m.mode === "as_of" ? " (historical run)" : ""} · built ${m.built_at.replace("T", " ")}`;
+  const chips = document.getElementById("status-chips");
+  for (const k of ["fresh", "due", "stale", "failed", "unavailable"]) if (dq[k]) chips.append(h("a", { href: "#data", style: "text-decoration:none" }, pill(FRESH, k, `${dq[k]} ${FRESH[k][1].toLowerCase()}`)));
+  route();
+}
+window.addEventListener("hashchange", route);
+boot();
+</script>

@@ -110,9 +110,12 @@ def assess(ctx, inflation_dir: float | None = None) -> dict:
         gdp_q = float(((g.iloc[-1] / g.iloc[-2]) ** 4 - 1) * 100) if len(g) > 1 else None
     label = cls["phase"] + (" — mixed signals" if cls["mixed"] else "")
     charts = [
-        {"id": "cy_curve", "title": "Yield curve and recession odds", "units": "pp / %", "start": "1985-01-01",
-         "series": [{"key": "T10Y3M", "label": "10y − 3m (pp)"}, {"key": "RECESSION_PROB_CURVE", "label": "Recession odds, 12m (%)", "axis": 1}],
-         "source": "Federal Reserve H.15 (via FRED); NY Fed probit model", "recessions": True},
+        {"id": "cy_curve", "title": "Yield curve: 10-year minus 3-month", "units": "percentage points", "start": "1985-01-01",
+         "series": [{"key": "T10Y3M", "label": "10y − 3m"}], "source": "Federal Reserve H.15 (via FRED)", "recessions": True,
+         "note": "Below 0 = inverted"},
+        {"id": "cy_recprob", "title": "Recession odds from the yield curve", "units": "% chance within 12 months", "start": "1985-01-01",
+         "series": [{"key": "RECESSION_PROB_CURVE", "label": "Recession odds"}], "source": "NY Fed probit model, recomputed",
+         "recessions": True},
         {"id": "cy_activity", "title": "Activity: Chicago Fed index (0 = trend growth)", "units": "index", "start": "1990-01-01",
          "series": [{"key": "CFNAIMA3", "label": "3-month average"}], "source": "Chicago Fed (via FRED)", "recessions": True},
         {"id": "cy_orders", "title": "Leading: permits and equipment orders", "units": "% y/y", "start": "2000-01-01",

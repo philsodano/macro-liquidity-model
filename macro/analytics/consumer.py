@@ -95,9 +95,10 @@ def assess(ctx) -> dict:
     if any("delinquency" in s and "+" in s.split("(")[1][:2] for s in stress):
         implications.append("Rising delinquencies point to lender losses (cards, autos, BNPL) before they hit spending.")
     charts = [
-        {"id": "co_jobs", "title": "Jobs and jobless claims", "units": "thousands", "start": "2015-01-01",
-         "series": [{"key": "PAYROLL_3M_AVG", "label": "Payroll growth, 3m avg (k/month)"},
-                    {"key": "ICSA", "label": "Initial claims (k/week)", "axis": 1}], "source": "BLS; Dept of Labor (via FRED)"},
+        {"id": "co_jobs", "title": "Jobs added per month (3-month average)", "units": "thousands per month", "start": "2015-01-01",
+         "series": [{"key": "PAYROLL_3M_AVG", "label": "Payroll growth"}], "source": "BLS (via FRED)"},
+        {"id": "co_claims", "title": "New jobless claims", "units": "thousands per week", "start": "2015-01-01",
+         "series": [{"key": "ICSA", "label": "Initial claims"}], "source": "Department of Labor (via FRED)"},
         {"id": "co_unemp", "title": "Unemployment and the Sahm rule", "units": "%", "start": "2000-01-01",
          "series": [{"key": "UNRATE", "label": "Unemployment rate"}, {"key": "SAHMREALTIME", "label": "Sahm indicator (pp)"}],
          "source": "BLS (via FRED)", "recessions": True},
