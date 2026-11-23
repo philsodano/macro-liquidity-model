@@ -38,9 +38,11 @@ def chg_bp(s: pd.Series, weeks: int = 13) -> float | None:
     return None if prior.empty else float((s.iloc[-1] - prior.iloc[-1]) * 100)
 
 
-def verdict_from_pctile(p: float | None, higher_is_better_paid: bool = True) -> str:
+def verdict_from_pctile(p: float | None, higher_is_better_paid: bool = True, years: float | None = None) -> str:
     if p is None:
         return "n/a"
+    if years is not None and years < 10:
+        return "short history"
     q = p if higher_is_better_paid else 100 - p
     return "well paid" if q >= 60 else "poorly paid" if q <= 25 else "fairly paid"
 
@@ -98,7 +100,7 @@ def assess(ctx, recession_prob: float | None = None) -> dict:
         s = ctx.summary(sid)
         comp.append({"asset": asset, "measure": label, "value": s["latest"], "display": fmt.format(s["latest"]),
                      "pctile": s["pctile"], "years": s["pctile_years"], "obs_date": s["obs_date"],
-                     "verdict": verdict_from_pctile(s["pctile"], higher_better), "source": s["source"]})
+                     "verdict": verdict_from_pctile(s["pctile"], higher_better, s["pctile_years"]), "source": s["source"]})
         return s
     erp = row("US equities", "ERP_DAMODARAN", "Implied equity risk premium")
     row("Corporate credit", "BAA10Y", "Baa spread over Treasuries")

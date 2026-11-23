@@ -69,3 +69,9 @@ def test_signal_score_bounds():
     assert score_from_z(5) == 2 and score_from_z(-5) == -2
     s = Signal(id="x", label="X", score=1.2, evidence="e", kind="fact", horizon="leading", group="growth")
     assert s.state == "positive"
+
+
+def test_short_history_not_called_well_paid():
+    from macro.analytics.markets import verdict_from_pctile
+    assert verdict_from_pctile(96, years=3) == "short history"
+    assert verdict_from_pctile(96, years=20) == "well paid"

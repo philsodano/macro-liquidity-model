@@ -12,6 +12,7 @@ dev = ["pytest>=8"]
 testpaths = ["tests"]
 markers = ["network: hits live data sources (deselect with -m 'not network')"]
 addopts = "-m 'not network'"
+filterwarnings = ["ignore:.*Sorting by default when concatenating.*"]
 
 [tool.setuptools]
 packages = ["macro"]
