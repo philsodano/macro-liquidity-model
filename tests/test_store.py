@@ -62,3 +62,8 @@ def test_meta_roundtrip(store):
     store.set_meta("X", last_error=None)
     m = store.meta("X")
     assert m["last_fetch"] == "2026-11-23" and m["source"] == "fred" and "last_error" in m
+
+
+def test_write_rounds_float_noise(store):
+    store.write("X", _s({"2026-01-01": 892310 * 0.001}), seen_at=date(2026, 1, 2))
+    assert "892.31\n" in (store.root / "data" / "series" / "X.csv").read_text()

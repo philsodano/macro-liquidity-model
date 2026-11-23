@@ -32,7 +32,7 @@ class Store:
         """Merge observations; log new or changed values. Returns count of new/changed obs."""
         if s is None or s.empty:
             return 0
-        s = pd.Series(s, dtype=float).dropna()
+        s = pd.Series(s, dtype=float).dropna().round(8)
         s.index = pd.to_datetime(s.index).normalize()
         s = s[~s.index.duplicated(keep="last")].sort_index()
         cur = self.read(sid)

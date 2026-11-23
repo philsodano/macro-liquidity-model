@@ -14,3 +14,20 @@
   release_lag_days: 1
   what: Total assets of all Federal Reserve Banks (H.4.1, Wednesday level).
   why: Balance-sheet growth (QE) adds reserves; shrinkage (QT) removes them.
+- id: TGA_DAILY
+  name: Treasury cash balance (daily)
+  short: Treasury's cash account at the Fed, daily
+  source: treasury
+  source_id: dts:tga
+  units: USD bn
+  scale: 0.001
+  freq: D
+  section: liquidity
+  pillar: central_bank
+  role: member
+  display_only: true
+  signal: leading
+  polarity: -1
+  release_lag_days: 1
+  what: Treasury General Account closing balance from the Daily Treasury Statement.
+  why: A rising TGA pulls reserves out of the banking system; a falling TGA puts them back.
