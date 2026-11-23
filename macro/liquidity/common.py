@@ -55,11 +55,16 @@ def trend_of(accel: float | None) -> str:
     return "improving" if accel > TREND else "deteriorating" if accel < -TREND else "stable"
 
 
-def to_weekly(s: pd.Series, limit_weeks: int = 14) -> pd.Series:
+def to_weekly(s: pd.Series, limit_weeks: int = 14, end=None) -> pd.Series:
+    """Weekly (Wednesday) series, carried forward at most `limit_weeks` and never labelled after `end`."""
     if s.empty:
         return s
-    idx = pd.date_range(s.index[0], s.index[-1] + pd.Timedelta(days=6), freq="W-WED")
-    return s.reindex(s.index.union(idx)).ffill(limit=limit_weeks * 7).reindex(idx).dropna()
+    stop = pd.Timestamp(end) if end is not None else s.index[-1] + pd.Timedelta(days=6)
+    idx = pd.date_range(s.index[0], max(stop, s.index[0]), freq="W-WED")
+    full = s.reindex(s.index.union(idx)).ffill()
+    last = s.index[-1]
+    out = full.reindex(idx)
+    return out[out.index <= last + pd.Timedelta(weeks=limit_weeks)].dropna()
 
 
 def core_impulse(ctx, sid: str) -> tuple[pd.Series, dict]:
@@ -79,7 +84,7 @@ def build_pillar(ctx, pid: str, title: str, core_ids: list[str], member_ids: lis
         imp, summ = core_impulse(ctx, sid)
         cores.append(summ)
         if not imp.empty and summ["freshness"] in ("fresh", "due"):
-            hist.append(to_weekly(imp, limit_weeks=16 if ctx.registry[sid].freq == "Q" else 6).rename(sid))
+            hist.append(to_weekly(imp, limit_weeks=16 if ctx.registry[sid].freq == "Q" else 8, end=ctx.today).rename(sid))
             used.append(sid)
     if hist:
         h = pd.concat(hist, axis=1).ffill(limit=16).dropna(how="all").mean(axis=1)

@@ -38,7 +38,10 @@ def test_2019_repo_stress_flagged(run):
 def test_2020_flood_detected(run):
     out, p = run("2020-04-30")
     assert p["central_bank"]["impulse"] > 2 and p["central_bank"]["state"] == "adding"
-    assert out["consolidated"]["market"]["trend"] == "improving"
+    assert p["central_bank"]["trend"] == "improving"
+    # credit was still far worse than 13 weeks earlier, so market liquidity only turns up by June (slow at V-turns)
+    out6, _ = run("2020-06-30")
+    assert out6["consolidated"]["market"]["trend"] == "improving" and out6["consolidated"]["market"]["composite"] > 0.5
 
 
 def test_2022_tightening_drains(run):

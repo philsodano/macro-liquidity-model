@@ -50,7 +50,15 @@ class Ctx:
             if fs is not None and self.as_of is not None:
                 fs = fs[fs <= pd.Timestamp(self.as_of)]
             grace = self.settings.get("freshness_grace_days")
-            self._sum[sid] = summarize(ind, self.s(sid), self.today, first_seen=fs, grace=grace)
+            summ = summarize(ind, self.s(sid), self.today, first_seen=fs, grace=grace)
+            inputs = [i for i in (ind.params or {}).get("inputs", []) if i in self.registry]
+            if ind.source == "derived" and inputs and summ["latest"] is not None:
+                # a model series is as fresh as its stalest input (its own date can lag the inputs' release)
+                rank = {"fresh": 0, "due": 1, "stale": 2, "missing": 3}
+                worst = max((self.summary(i)["freshness"] for i in inputs), key=lambda f: rank.get(f, 0))
+                summ["freshness"] = worst if worst in rank else summ["freshness"]
+                summ["inputs"] = inputs
+            self._sum[sid] = summ
         return self._sum[sid]
 
     def has(self, sid: str) -> bool:

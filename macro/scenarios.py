@@ -37,6 +37,8 @@ def score(signals, settings: dict) -> dict:
     cfg = settings["scenarios"]
     w, floor, cap = cfg["weights"], cfg.get("floor", 5), cfg.get("cap", 80)
     gs, missing = group_scores(signals)
+    gs = {g: v for g, v in gs.items() if g in w}           # 'detail' signals are shown, never scored
+    missing = [g for g in missing if g in w]
     logit = {k: math.log(cfg["priors"][k]) for k in SCEN}
     contributions = []
     for g, v in sorted(gs.items()):

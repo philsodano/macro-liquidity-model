@@ -27,17 +27,27 @@ RULES = [
 ]
 
 
+def _frame(avail: list[dict]) -> pd.DataFrame:
+    """Every pillar carried to the same last week, so the latest row never silently drops a slow pillar."""
+    end = max(p["impulse_history"].index[-1] for p in avail if len(p["impulse_history"]))
+    return pd.concat([to_weekly(p["impulse_history"], 16, end=end).rename(p["id"]) for p in avail], axis=1)
+
+
+def _accel(avail: list[dict]) -> float | None:
+    acc = [p["accel"] for p in avail if p.get("accel") is not None]
+    return sum(acc) / len(acc) if acc else None
+
+
 def _group(pillars: list[dict], ids: list[str]) -> dict:
     sub = [p for p in pillars if p["id"] in ids]
     avail = [p for p in sub if p.get("freshness") in ("fresh", "due") and p.get("impulse") is not None]
     if not avail:
         return {"members": ids, "composite": None, "accel": None, "state": "n/a", "trend": "n/a",
                 "history": pd.Series(dtype=float)}
-    frame = pd.concat([to_weekly(p["impulse_history"], 16).rename(p["id"]) for p in avail], axis=1)
+    frame = _frame(avail)
     hist = frame.mean(axis=1).where(frame.notna().sum(axis=1) >= max(1, math.ceil(len(avail) / 2))).dropna()
     comp = sum(p["impulse"] for p in avail) / len(avail)
-    back = hist[hist.index <= hist.index[-1] - pd.Timedelta(weeks=13)] if len(hist) else hist
-    accel = float(hist.iloc[-1] - back.iloc[-1]) if len(back) else None
+    accel = _accel(avail)
     return {"members": ids, "used": [p["id"] for p in avail], "composite": round(comp, 2),
             "accel": None if accel is None else round(accel, 2), "state": state_of(comp), "trend": trend_of(accel),
             "history": hist}
@@ -54,10 +64,9 @@ def consolidate(pillars: list[dict]) -> dict:
                 "excluded": excluded, "composite_history": pd.Series(dtype=float), "rules": RULES,
                 "market": _group(pillars, MARKET), "economy": _group(pillars, ECONOMY), "split_note": SPLIT_NOTE}
     composite = sum(p["impulse"] for p in avail) / len(avail)
-    frame = pd.concat([to_weekly(p["impulse_history"], 16).rename(p["id"]) for p in avail], axis=1)
+    frame = _frame(avail)
     hist = frame.mean(axis=1).where(frame.notna().sum(axis=1) >= math.ceil(len(avail) / 2)).dropna()
-    back = hist[hist.index <= hist.index[-1] - pd.Timedelta(weeks=13)] if len(hist) else hist
-    accel = float(hist.iloc[-1] - back.iloc[-1]) if len(back) else None
+    accel = _accel(avail)
     return {
         "composite": round(composite, 2), "accel": None if accel is None else round(accel, 2),
         "state": state_of(composite), "trend": trend_of(accel), "breadth": breadth, "excluded": excluded,

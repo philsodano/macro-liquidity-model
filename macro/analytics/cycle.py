@@ -84,7 +84,9 @@ def assess(ctx, inflation_dir: float | None = None) -> dict:
                       group="growth", kind="estimate", evidence=f"{len(cz)} activity indicators average {cls['coincident']:+.2f}."))
     rp = None
     if ctx.has("T10Y3M"):
-        m = ctx.s("T10Y3M").resample("ME").mean().dropna()
+        raw = ctx.s("T10Y3M").dropna()
+        m = raw.groupby(raw.index.to_period("M")).mean()
+        m.index = raw.groupby(raw.index.to_period("M")).apply(lambda x: x.index[-1]).values  # label = last real obs
         rp = recession_prob(float(m.iloc[-1]))
         ctx.put("RECESSION_PROB_CURVE", m.apply(recession_prob))
         sig.append(Signal("curve_recession", "Recession odds from the yield curve", (25 - rp) / 12.5, horizon="leading",

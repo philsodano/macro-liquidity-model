@@ -49,7 +49,7 @@ def assess(ctx) -> dict:
         lab.append(Signal("quits", "People quitting jobs", (q["pct_changes"].get("12m") or 0) / 10, horizon="leading",
                           group="labour", evidence=f"Quits {q['pct_changes'].get('12m') or 0:+.1f}% y/y — workers' confidence."))
     real_wage = None
-    if ctx.has("CES0500000003") and ctx.has("CPIAUCSL"):
+    if _yoy(ctx, "CES0500000003") is not None and _yoy(ctx, "CPIAUCSL") is not None:
         real_wage = _yoy(ctx, "CES0500000003") - _yoy(ctx, "CPIAUCSL")
         lab.append(Signal("real_wages", "Real wage growth", real_wage, horizon="lagging", group="consumer",
                           evidence=f"Wages {_yoy(ctx, 'CES0500000003'):+.1f}% y/y vs prices {_yoy(ctx, 'CPIAUCSL'):+.1f}% → "

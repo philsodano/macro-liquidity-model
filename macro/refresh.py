@@ -29,6 +29,12 @@ def refresh(store, registry, settings, today: date, only_due: bool = True, ids: 
             continue
         try:
             s = SOURCES[ind.source](ind, pd.Timestamp(start).date())
+            if s is None or s.dropna().empty:
+                raise RuntimeError("source returned no data (format change or error page?)")
+            stored = store.read(sid)
+            if not stored.empty and s.dropna().index.max() < stored.index.max():
+                raise RuntimeError(f"source returned older data than stored ({s.dropna().index.max().date()} < "
+                                   f"{stored.index.max().date()})")
             n = store.write(sid, s, seen_at=today)
             store.set_meta(sid, last_fetch=today.isoformat(), last_error=None, source=ind.source,
                            fetched_at=datetime.now().isoformat(timespec="seconds"))

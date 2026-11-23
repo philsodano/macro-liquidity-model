@@ -3,7 +3,7 @@
 A forward-looking US macro and markets model built around liquidity, monetary policy and the business cycle.
 One data store and one analytics engine feed two outputs: an interactive dashboard and a weekly report.
 
-**Dashboard:** private claude.ai page (link added after first publish). Locally: `python -m http.server -d site`, then open http://localhost:8000.
+**Dashboard:** https://claude.ai/artifact/3d4VEpJQumgSbYMzo9oy3j (private). Locally: `python -m http.server -d site`, then open http://localhost:8000.
 
 ## Quick start
 ```bash

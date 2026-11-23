@@ -10,28 +10,50 @@ def _clip(x, lo=-2.0, hi=2.0):
     return None if x is None else max(lo, min(hi, float(x)))
 
 
+SIGNAL_INPUTS = {
+    "payrolls": ("PAYEMS",), "claims": ("ICSA",), "unemployment": ("UNRATE",), "quits": ("JTSQUL",),
+    "real_wages": ("CES0500000003", "CPIAUCSL"), "real_spending": ("PCEC96",), "real_income": ("DSPIC96",),
+    "saving": ("PSAVERT",), "delinq_DRCCLACBS": ("DRCCLACBS",), "delinq_DROCLACBS": ("DROCLACBS",),
+    "real_policy_rate": ("DFF", "PCEPILFE"), "market_path": ("DFF", "DGS1"), "fin_conditions": ("NFCI",),
+    "core_pce": ("PCEPILFE",), "expectations": ("T5YIFR",), "curve_recession": ("T10Y3M",), "sahm": ("SAHMREALTIME",),
+    "equity_valuation": ("ERP_DAMODARAN",), "credit_valuation": ("BAA10Y",), "credit_momentum": ("BAMLH0A0HYM2",),
+}
+
+
+def apply_freshness(signals: list, ctx) -> list:
+    """A signal whose input is stale or missing is shown but not counted as current evidence."""
+    for s in signals:
+        ids = s.inputs or SIGNAL_INPUTS.get(s.id, ())
+        bad = [i for i in ids if i in ctx.registry and ctx.summary(i)["freshness"] not in ("fresh", "due")]
+        if bad and s.available:
+            s.available = False
+            s.evidence = (f"Not counted — stale input ({', '.join(f'{i} last {ctx.summary(i)['period']}' for i in bad)}). "
+                          + s.evidence)
+    return signals
+
+
 def liquidity_signals(liq: dict) -> list[Signal]:
+    """Market liquidity → 'liquidity' evidence; economy liquidity → 'growth' evidence. Pillars and the all-pillar
+    average are shown as detail only, so no pillar is counted twice in the scenarios."""
     out = []
     for p in liq["pillars"]:
         if p["impulse"] is None:
             continue
-        grp = "credit" if p["id"] == "private_credit" else "liquidity"
         out.append(Signal(f"liq_{p['id']}", p["title"], p["impulse"] + 0.5 * (p["accel"] or 0), kind="estimate",
-                          horizon="leading", group=grp,
+                          horizon="leading", group="detail",
                           evidence=f"{p['title']}: {p['state']}, {p['trend']} (impulse {p['impulse']:+.2f}, "
                                    f"change over 13 weeks {(p['accel'] or 0):+.2f})."))
     c = liq["consolidated"]
     for key, label, grp in (("market", "Market liquidity (Fed, global, credit)", "liquidity"),
                             ("economy", "Economy liquidity (deficits, banks, AI capex)", "growth")):
         g = c[key]
-        if g["composite"] is not None:
-            out.append(Signal(f"liq_{key}", label, g["composite"] + 0.5 * (g["accel"] or 0), kind="estimate",
-                              horizon="leading", group=grp,
-                              evidence=f"{label}: {g['composite']:+.2f}, {g['trend']}."))
-    if c["composite"] is not None:
-        out.append(Signal("liq_composite", "Liquidity composite", c["composite"] + 0.5 * (c["accel"] or 0), kind="estimate",
-                          horizon="leading", group="liquidity",
-                          evidence=f"Composite {c['composite']:+.2f}, {c['trend']}; breadth {c['breadth']}."))
+        if g.get("composite") is not None:
+            out.append(Signal(f"liq_{key}", label, g["composite"] + 0.5 * (g.get("accel") or 0), kind="estimate",
+                              horizon="leading", group=grp, evidence=f"{label}: {g['composite']:+.2f}, {g['trend']}."))
+    if c.get("composite") is not None:
+        out.append(Signal("liq_composite", "All-pillar liquidity", c["composite"] + 0.5 * (c.get("accel") or 0),
+                          kind="estimate", horizon="leading", group="detail",
+                          evidence=f"All six pillars {c['composite']:+.2f}, {c['trend']}; breadth {c['breadth']}."))
     return out
 
 
@@ -99,6 +121,7 @@ def assess_all(ctx, liq: dict) -> dict:
         if s["rel_3m"] is not None:
             context[f"sector:{s['name']}"] = f"{s['rel_3m']:+.1f}pp vs S&P 500 over 3 months."
     alloc = allocation.assess(factors, valuation, context)
-    signals = liquidity_signals(liq) + cb["signals"] + con["signals"] + cyc["signals"] + infl["signals"] + mk["signals"]
+    signals = apply_freshness(liquidity_signals(liq) + cb["signals"] + con["signals"] + cyc["signals"] + infl["signals"]
+                              + mk["signals"], ctx)
     return {"central_banks": cb, "consumer": con, "cycle": cyc, "inflation": infl, "markets": mk,
             "cross_asset": xa, "allocation": alloc, "signals": signals}

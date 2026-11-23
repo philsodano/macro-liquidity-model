@@ -25,6 +25,7 @@ class Signal:
     horizon: str = "coincident"  # leading | coincident | lagging
     group: str = "growth"
     available: bool = True
+    inputs: tuple = ()
     state: str = field(init=False)
 
     def __post_init__(self):

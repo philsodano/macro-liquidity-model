@@ -50,25 +50,28 @@ def verdict_from_pctile(p: float | None, higher_is_better_paid: bool = True, yea
 def assess(ctx, recession_prob: float | None = None) -> dict:
     g = ctx.s
     R: dict[str, float | None] = {}
-    eq = g("SPY") if ctx.has("SPY") else g("SP500")
+
+    def ok(sid):  # a reading is only "current" if its input is fresh or due
+        return ctx.has(sid) and ctx.summary(sid)["freshness"] in ("fresh", "due")
+    eq = g("SPY") if ok("SPY") else g("SP500")
     R["spx_3m"] = ret(eq, 13)
     R["spx_12m"] = ret(eq, 52)
-    R["spy_3m"] = ret(g("SPY"), 13) if ctx.has("SPY") else None
-    R["rsp_spy_3m"] = rel(g("RSP"), g("SPY"), 13) if ctx.has("RSP") and ctx.has("SPY") else None
-    R["iwm_spy_3m"] = rel(g("IWM"), g("SPY"), 13) if ctx.has("IWM") and ctx.has("SPY") else None
-    R["growth_value_3m"] = rel(g("IVW"), g("IVE"), 13) if ctx.has("IVW") and ctx.has("IVE") else None
-    R["intl_us_3m"] = rel(g("EFA"), g("SPY"), 13) if ctx.has("EFA") and ctx.has("SPY") else None
-    R["gold_3m"] = ret(g("GLD"), 13) if ctx.has("GLD") else None
-    R["copper_3m"] = ret(g("CPER"), 13) if ctx.has("CPER") else ret(g("PCOPPUSDM"), 13) if ctx.has("PCOPPUSDM") else None
-    R["oil_3m"] = ret(g("DCOILWTICO"), 13) if ctx.has("DCOILWTICO") else None
-    R["btc_3m"] = ret(g("CBBTCUSD"), 13) if ctx.has("CBBTCUSD") else None
-    R["dollar_3m"] = ret(g("DTWEXBGS"), 13) if ctx.has("DTWEXBGS") else None
-    R["real10_change_bp"] = chg_bp(g("DFII10")) if ctx.has("DFII10") else None
-    R["ten_change_bp"] = chg_bp(g("DGS10")) if ctx.has("DGS10") else None
-    R["hy_change_bp"] = chg_bp(g("BAMLH0A0HYM2")) if ctx.has("BAMLH0A0HYM2") else None
-    R["curve_change_bp"] = chg_bp((g("DGS10") - g("DGS2")).dropna()) if ctx.has("DGS10") and ctx.has("DGS2") else None
-    R["vix"] = float(g("VIXCLS").iloc[-1]) if ctx.has("VIXCLS") else None
-    R["vix_pctile"] = percentile(g("VIXCLS")) if ctx.has("VIXCLS") else None
+    R["spy_3m"] = ret(g("SPY"), 13) if ok("SPY") else None
+    R["rsp_spy_3m"] = rel(g("RSP"), g("SPY"), 13) if ok("RSP") and ok("SPY") else None
+    R["iwm_spy_3m"] = rel(g("IWM"), g("SPY"), 13) if ok("IWM") and ok("SPY") else None
+    R["growth_value_3m"] = rel(g("IVW"), g("IVE"), 13) if ok("IVW") and ok("IVE") else None
+    R["intl_us_3m"] = rel(g("EFA"), g("SPY"), 13) if ok("EFA") and ok("SPY") else None
+    R["gold_3m"] = ret(g("GLD"), 13) if ok("GLD") else None
+    R["copper_3m"] = ret(g("CPER"), 13) if ok("CPER") else ret(g("PCOPPUSDM"), 13) if ok("PCOPPUSDM") else None
+    R["oil_3m"] = ret(g("DCOILWTICO"), 13) if ok("DCOILWTICO") else None
+    R["btc_3m"] = ret(g("CBBTCUSD"), 13) if ok("CBBTCUSD") else None
+    R["dollar_3m"] = ret(g("DTWEXBGS"), 13) if ok("DTWEXBGS") else None
+    R["real10_change_bp"] = chg_bp(g("DFII10")) if ok("DFII10") else None
+    R["ten_change_bp"] = chg_bp(g("DGS10")) if ok("DGS10") else None
+    R["hy_change_bp"] = chg_bp(g("BAMLH0A0HYM2")) if ok("BAMLH0A0HYM2") else None
+    R["curve_change_bp"] = chg_bp((g("DGS10") - g("DGS2")).dropna()) if ok("DGS10") and ok("DGS2") else None
+    R["vix"] = float(g("VIXCLS").iloc[-1]) if ok("VIXCLS") else None
+    R["vix_pctile"] = percentile(g("VIXCLS")) if ok("VIXCLS") else None
     R["netliq_13w_pct"] = None
     if "NETLIQ" in ctx.extra_series:
         R["netliq_13w_pct"] = ret(ctx.extra_series["NETLIQ"], 13)

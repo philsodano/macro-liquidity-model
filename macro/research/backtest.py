@@ -12,6 +12,12 @@ from ..transforms import yoy
 from .lags import _monthly, lead_lag
 
 
+def published(s: pd.Series, months: int = 1) -> pd.Series:
+    """Re-date a monthly signal to when it could have been known (one month after its observation month)."""
+    s = s.dropna()
+    return pd.Series(s.values, index=s.index + pd.DateOffset(months=months))
+
+
 def _fwd(px: pd.Series, months: int) -> pd.Series:
     return (px.shift(-months) / px - 1) * 100
 
@@ -104,15 +110,15 @@ def principle_tests(ctx) -> list[dict]:
         return []
     f6, f12 = _fwd(spx, 6), _fwd(spx, 12)
     out = []
-    allp = _monthly(ctx.extra_series.get("LIQ_COMPOSITE", pd.Series(dtype=float)), "last")
-    comp = _monthly(ctx.extra_series.get("LIQ_MARKET", pd.Series(dtype=float)), "last")
-    econ = _monthly(ctx.extra_series.get("LIQ_ECONOMY", pd.Series(dtype=float)), "last")
-    mi = _money_impulse(ctx)
+    allp = published(_monthly(ctx.extra_series.get("LIQ_COMPOSITE", pd.Series(dtype=float)), "last"))
+    comp = published(_monthly(ctx.extra_series.get("LIQ_MARKET", pd.Series(dtype=float)), "last"))
+    econ = published(_monthly(ctx.extra_series.get("LIQ_ECONOMY", pd.Series(dtype=float)), "last"))
+    mi = published(_money_impulse(ctx))
     by_pillar = {}
     for p in ("central_bank", "fiscal", "banking", "private_credit", "global", "ai_capex"):
         s = ctx.extra_series.get(f"IMPULSE_{p}")
         if s is not None and not s.empty:
-            r = conditional_returns(_monthly(s, "last"), f6)
+            r = conditional_returns(published(_monthly(s, "last")), f6)
             by_pillar[p] = {k: r.get(k) for k in ("start", "hit_rate_excess", "corr", "mean_when_positive", "mean_when_negative", "n_active")}
     # 1. Liquidity drives market direction
     r_comp = conditional_returns(comp, f6) if not comp.empty else {"hit_rate": None}
@@ -124,7 +130,8 @@ def principle_tests(ctx) -> list[dict]:
     fails = failure_episodes(comp, f6) if not comp.empty else []
     out.append({"principle": "Liquidity drives market direction",
                 "test": "When market liquidity is clearly positive (negative), are the next 6 months' stock returns above "
-                        "(below) average? Compared with the all-pillar and economy composites.",
+                        "(below) average? Signals are used one month after their observation month (publication lag). "
+                        "Compared with the all-pillar and economy composites.",
                 "result": r_comp, "all_pillars": r_all, "economy": r_econ, "long_history": r_long, "by_pillar": by_pillar,
                 "verdict": _verdict(r_comp.get("hit_rate_excess"), spread),
                 "failures": fails[:12],

@@ -33,7 +33,9 @@ def ai_funding_split(t: pd.DataFrame) -> pd.DataFrame:
     if t.empty:
         return pd.DataFrame()
     piv = t.pivot_table(index=["q", "firm"], columns="kind", values="v", aggfunc="sum")
-    piv = piv[piv.get("CAPEX").notna()] if "CAPEX" in piv else piv.iloc[0:0]
+    if "CAPEX" not in piv.columns:
+        return pd.DataFrame()
+    piv = piv[piv["CAPEX"].notna()]
     g = piv.groupby(level=0)
     out = pd.DataFrame({
         "firms": g.size(),
@@ -41,6 +43,7 @@ def ai_funding_split(t: pd.DataFrame) -> pd.DataFrame:
         "ocf": g["OCF"].sum() if "OCF" in piv else 0.0,
         "debt_issued": g["DEBT_ISS"].sum() if "DEBT_ISS" in piv else 0.0,
         "lease_principal": g["LEASE"].sum() if "LEASE" in piv else 0.0,
+        "debt_firms": g["DEBT_ISS"].count() if "DEBT_ISS" in piv else 0,   # firms with a reported debt figure
     })
     out["fcf_after_capex"] = out["ocf"] - out["capex"]
     out["internal_share"] = (out[["ocf", "capex"]].min(axis=1) / out["capex"] * 100).clip(0, 100)
@@ -67,8 +70,12 @@ def assess(ctx) -> dict:
                            f"{last['internal_share']:.0f}% funded internally.")
             last4 = full.tail(4)
             debt4 = float(last4["debt_issued"].sum())
-            drivers.append(f"Debt raised over the last 4 quarters: {fmt_level(debt4)} "
-                           f"(vs capex {fmt_level(float(last4['capex'].sum()))}).")
+            qs = set(last4.index)
+            have = set(t[(t["kind"] == "DEBT_ISS") & (t["q"].isin(qs))]["firm"])
+            missing_f = [f for f in FIRMS if f not in have]
+            drivers.append(f"Debt raised over the last 4 quarters: {fmt_level(debt4)} (vs capex "
+                           f"{fmt_level(float(last4['capex'].sum()))}); covers {len(FIRMS) - len(missing_f)} of {len(FIRMS)} firms"
+                           + (f" — no recent debt figures for {', '.join(missing_f)} (not counted as zero borrowing)." if missing_f else "."))
             extra["funding_last4q"] = {"capex": round(float(last4["capex"].sum()), 1),
                                        "ocf": round(float(last4["ocf"].sum()), 1), "debt_issued": round(debt4, 1),
                                        "lease_principal": round(float(last4["lease_principal"].sum()), 1)}

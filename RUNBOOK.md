@@ -34,6 +34,6 @@ python -m macro build && python -m macro report
 
 ## 5. Save and publish
 - `git add -A && git commit -m "data: weekly update YYYY-MM-DD"` then push to `main`.
-- Republish the dashboard to its existing private page (URL in `README.md` → *Dashboard*): read the artifact first,
+- Republish the dashboard to its existing private page https://claude.ai/artifact/3d4VEpJQumgSbYMzo9oy3j: read the artifact first,
   then publish `site/index.html` with files `snapshot.json` and `reports.json` from `site/`.
 - Reply with: scenario odds and their change, the 3 biggest changes, any failed sources.
