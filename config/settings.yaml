@@ -17,3 +17,9 @@ freshness_grace_days:
   M: 25
   Q: 45
 history_start: "1985-01-01"
+# Scenario model: priors (sum 100) and how strongly each evidence group moves bull vs bear (log-odds per score unit).
+scenarios:
+  priors: {base: 55, bull: 20, bear: 25}
+  floor: 5
+  cap: 80
+  weights: {liquidity: 0.6, credit: 0.5, growth: 0.4, labour: 0.3, consumer: 0.3, inflation: 0.3, policy: 0.3, valuation: 0.3}
