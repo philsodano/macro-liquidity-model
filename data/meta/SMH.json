@@ -1,0 +1,4 @@
+{
+ "last_error": "RuntimeError: GET https://api.tiingo.com/tiingo/daily/SMH/prices failed: 403 Client Error: Forbidden for url: https://api.tiingo.com/tiingo/daily/SMH/prices?startDate=1985-01-01&format=json",
+ "last_error_at": "2026-11-23"
+}

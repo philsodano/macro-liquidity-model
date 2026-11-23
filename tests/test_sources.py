@@ -58,3 +58,18 @@ def test_boe_parse():
 def test_ecb_parse():
     s = ecb.parse((FX / "ecb.csv").read_text())
     assert s.loc["2026-11-14"] == 6190000
+
+
+def test_sec_quarter_without_q1_anchor():
+    units = [
+        {"start": "2026-01-01", "end": "2026-06-30", "val": 30, "filed": "2026-07-30"},
+        {"start": "2026-01-01", "end": "2026-09-30", "val": 50, "filed": "2026-10-30"},
+        {"start": "2026-01-01", "end": "2026-12-31", "val": 90, "filed": "2027-02-01"},
+    ]
+    q = sec.quarterly(units)
+    assert q.to_dict() == {pd.Timestamp("2026-09-30"): 20.0, pd.Timestamp("2026-12-31"): 40.0}
+
+
+def test_sec_empty_has_datetime_index():
+    q = sec.quarterly([{"start": "2026-01-01", "end": "2026-12-31", "val": 90, "filed": "2027-02-01"}])
+    assert q.empty and isinstance(q.index, pd.DatetimeIndex)

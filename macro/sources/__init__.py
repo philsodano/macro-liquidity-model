@@ -1,5 +1,5 @@
 """Source registry: name -> fetch(ind, start) -> pd.Series."""
-from . import boe, ecb, files, fred, nyfed, sec, tiingo, treasury
+from . import bis, boe, ecb, files, fred, nyfed, sec, tiingo, treasury
 
 SOURCES = {
     "fred": fred.fetch,
@@ -7,6 +7,7 @@ SOURCES = {
     "nyfed": nyfed.fetch,
     "ecb": ecb.fetch,
     "boe": boe.fetch,
+    "bis": bis.fetch,
     "sec": sec.fetch,
     "tiingo": tiingo.fetch,
     "files": files.fetch,

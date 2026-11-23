@@ -22,24 +22,23 @@ def _frame(units: list[dict]) -> pd.DataFrame:
 
 
 def quarterly(units: list[dict]) -> pd.Series:
+    """Quarterly flows from a mix of 3-month and year-to-date facts.
+
+    Direct ~90-day facts are used as-is; otherwise consecutive YTD facts sharing a fiscal-year start are
+    differenced. A quarter with no direct fact and no prior YTD anchor stays missing (never assumed zero)."""
     df = _frame(units)
     out: dict[pd.Timestamp, float] = {}
-    direct = df[(df["days"] >= 80) & (df["days"] <= 100)]
-    for _, r in direct.iterrows():
+    for _, r in df[(df["days"] >= 80) & (df["days"] <= 100)].iterrows():
         out[r["end"]] = float(r["val"])
-    for start, g in df[df["days"] > 100].groupby("start"):
-        g = g.sort_values("end")
-        prev_end, prev_val = None, 0.0
-        q1 = direct[direct["start"] == start]
-        if not q1.empty:
-            prev_end, prev_val = q1["end"].iloc[0], float(q1["val"].iloc[0])
-        for _, r in g.iterrows():
-            if prev_end is None:
-                break
-            if r["end"] not in out and 80 <= (r["end"] - prev_end).days <= 100:
-                out[r["end"]] = float(r["val"]) - prev_val
-            prev_end, prev_val = r["end"], float(r["val"])
-    return pd.Series(out, dtype=float).sort_index()
+    for _, g in df.groupby("start"):
+        g = g.sort_values("end").reset_index(drop=True)
+        for i in range(1, len(g)):
+            cur, prev = g.iloc[i], g.iloc[i - 1]
+            if cur["end"] not in out and 80 <= (cur["end"] - prev["end"]).days <= 100:
+                out[cur["end"]] = float(cur["val"]) - float(prev["val"])
+    s = pd.Series(out, dtype=float)
+    s.index = pd.DatetimeIndex(s.index)
+    return s.sort_index()
 
 
 def filed_dates(units: list[dict]) -> pd.Series:
@@ -48,10 +47,21 @@ def filed_dates(units: list[dict]) -> pd.Series:
 
 
 def fetch(ind, start: date | None = None) -> pd.Series:
-    cik, concept = ind.source_id.split(":")
-    r = get(URL.format(cik=int(cik), concept=concept), descriptive_ua=True)
-    units = r.json()["units"]["USD"]
-    s = quarterly(units) * ind.scale
+    """source_id = 'CIK:ConceptA|ConceptB' — concepts tried in order, earlier ones win on overlapping dates."""
+    cik, concepts = ind.source_id.split(":")
+    parts, errors = [], []
+    for concept in concepts.split("|"):
+        try:
+            r = get(URL.format(cik=int(cik), concept=concept), descriptive_ua=True, retries=2)
+            parts.append(quarterly(r.json()["units"]["USD"]))
+        except RuntimeError as e:
+            errors.append(str(e))
+    if not parts:
+        raise RuntimeError("; ".join(errors))
+    s = parts[0]
+    for p in parts[1:]:
+        s = s.combine_first(p)
+    s = s * ind.scale
     if start:
         s = s[s.index >= pd.Timestamp(start)]
     return s

@@ -21,4 +21,4 @@ def parse(text: str) -> pd.Series:
 def fetch(ind, start: date | None = None) -> pd.Series:
     params = {"csv.x": "yes", "Datefrom": pd.Timestamp(start or "1990-01-01").strftime("%d/%b/%Y"),
               "Dateto": "now", "SeriesCodes": ind.source_id, "CSVF": "TN", "UsingCodes": "Y", "VPD": "Y", "VFD": "N"}
-    return parse(get(URL, params=params).text) * ind.scale
+    return parse(get(URL, params=params, descriptive_ua=True).text) * ind.scale  # BoE rejects library UAs

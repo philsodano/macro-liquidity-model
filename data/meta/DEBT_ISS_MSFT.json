@@ -1,0 +1,4 @@
+{
+ "last_error": "RuntimeError: GET https://data.sec.gov/api/xbrl/companyconcept/CIK0000789019/us-gaap/ProceedsFromIssuanceOfDebt.json failed: 404 Client Error: Not Found for url: https://data.sec.gov/api/xbrl/companyconcept/CIK0000789019/us-gaap/ProceedsFromIssuanceOfDebt.json",
+ "last_error_at": "2026-11-23"
+}

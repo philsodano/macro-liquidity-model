@@ -8,7 +8,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parent.parent
 FREQS = {"D", "W", "M", "Q"}
-SOURCES = {"fred", "treasury", "nyfed", "ecb", "boe", "sec", "tiingo", "files", "derived"}
+SOURCES = {"fred", "treasury", "nyfed", "ecb", "boe", "bis", "sec", "tiingo", "files", "derived"}
 SIGNALS = {"leading", "coincident", "lagging"}
 PILLARS = {"central_bank", "fiscal", "banking", "private_credit", "global", "ai_capex"}
 
@@ -44,9 +44,13 @@ _FIELDS = {f.name for f in fields(Indicator)}
 def load_registry(path: Path | None = None) -> dict[str, Indicator]:
     path = path or ROOT / "config" / "indicators.yaml"
     raw = yaml.safe_load(Path(path).read_text()) or []
+    if isinstance(raw, dict):  # {defaults: ..., indicators: [...]} layout (defaults are YAML anchors)
+        raw = raw.get("indicators", [])
     reg: dict[str, Indicator] = {}
     core_owner: dict[tuple[str, str], str] = {}
     for item in raw:
+        item = dict(item)
+        item.setdefault("source_id", item.get("id"))
         unknown = set(item) - _FIELDS
         if unknown:
             raise ValueError(f"{item.get('id')}: unknown keys {sorted(unknown)}")

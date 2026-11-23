@@ -5,6 +5,7 @@ refresh_days:
   nyfed: 1
   ecb: 7
   boe: 7
+  bis: 7
   sec: 7
   tiingo: 1
   files: 7
