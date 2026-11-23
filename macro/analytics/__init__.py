@@ -21,6 +21,13 @@ def liquidity_signals(liq: dict) -> list[Signal]:
                           evidence=f"{p['title']}: {p['state']}, {p['trend']} (impulse {p['impulse']:+.2f}, "
                                    f"change over 13 weeks {(p['accel'] or 0):+.2f})."))
     c = liq["consolidated"]
+    for key, label, grp in (("market", "Market liquidity (Fed, global, credit)", "liquidity"),
+                            ("economy", "Economy liquidity (deficits, banks, AI capex)", "growth")):
+        g = c[key]
+        if g["composite"] is not None:
+            out.append(Signal(f"liq_{key}", label, g["composite"] + 0.5 * (g["accel"] or 0), kind="estimate",
+                              horizon="leading", group=grp,
+                              evidence=f"{label}: {g['composite']:+.2f}, {g['trend']}."))
     if c["composite"] is not None:
         out.append(Signal("liq_composite", "Liquidity composite", c["composite"] + 0.5 * (c["accel"] or 0), kind="estimate",
                           horizon="leading", group="liquidity",
@@ -42,7 +49,8 @@ def assess_all(ctx, liq: dict) -> dict:
     xa = cross_asset.matrix(r)
     hy = ctx.summary("BAMLH0A0HYM2") if ctx.has("BAMLH0A0HYM2") else None
     factors = {
-        "liquidity": _clip(liq["consolidated"]["composite"]),
+        # market liquidity is the measure that has historically lined up with risk assets (see research)
+        "liquidity": _clip(liq["consolidated"]["market"]["composite"]),
         "growth": _clip(cyc["classification"]["leading"] * 1.5),
         "inflation": _clip((infl["direction"] or 0) * 2) if infl["direction"] is not None else None,
         "real_rates": _clip(-(r.get("real10_change_bp") or 0) / 25) if r.get("real10_change_bp") is not None else None,

@@ -7,6 +7,13 @@ import pandas as pd
 
 from .common import state_of, to_weekly, trend_of
 
+MARKET = ["central_bank", "global", "private_credit"]   # lead risk assets (weeks–quarters)
+ECONOMY = ["fiscal", "banking", "ai_capex"]             # lead growth (2–4 quarters)
+SPLIT_NOTE = ("Pillars are grouped by what they lead, as classified before testing: market liquidity (Fed, global, "
+              "credit spreads) for risk assets; economy liquidity (deficits, bank lending, AI capex) for growth. "
+              "The back-test (Research tab) shows market liquidity lining up with stock returns far better than the "
+              "all-pillar average, which the economy pillars dilute.")
+
 RULES = [
     "Pillars are combined as standardised impulses (direction and speed), never by adding dollar amounts.",
     "Dollar totals are shown only where units match: Fed net liquidity, and ECB + BoJ in dollars.",
@@ -20,6 +27,22 @@ RULES = [
 ]
 
 
+def _group(pillars: list[dict], ids: list[str]) -> dict:
+    sub = [p for p in pillars if p["id"] in ids]
+    avail = [p for p in sub if p.get("freshness") in ("fresh", "due") and p.get("impulse") is not None]
+    if not avail:
+        return {"members": ids, "composite": None, "accel": None, "state": "n/a", "trend": "n/a",
+                "history": pd.Series(dtype=float)}
+    frame = pd.concat([to_weekly(p["impulse_history"], 16).rename(p["id"]) for p in avail], axis=1)
+    hist = frame.mean(axis=1).where(frame.notna().sum(axis=1) >= max(1, math.ceil(len(avail) / 2))).dropna()
+    comp = sum(p["impulse"] for p in avail) / len(avail)
+    back = hist[hist.index <= hist.index[-1] - pd.Timedelta(weeks=13)] if len(hist) else hist
+    accel = float(hist.iloc[-1] - back.iloc[-1]) if len(back) else None
+    return {"members": ids, "used": [p["id"] for p in avail], "composite": round(comp, 2),
+            "accel": None if accel is None else round(accel, 2), "state": state_of(comp), "trend": trend_of(accel),
+            "history": hist}
+
+
 def consolidate(pillars: list[dict]) -> dict:
     avail = [p for p in pillars if p.get("freshness") in ("fresh", "due") and p.get("impulse") is not None]
     excluded = [p["id"] for p in pillars if p not in avail]
@@ -28,7 +51,8 @@ def consolidate(pillars: list[dict]) -> dict:
         breadth[state_of(p["impulse"])] += 1
     if not avail:
         return {"composite": None, "accel": None, "state": "n/a", "trend": "n/a", "breadth": breadth,
-                "excluded": excluded, "composite_history": pd.Series(dtype=float), "rules": RULES}
+                "excluded": excluded, "composite_history": pd.Series(dtype=float), "rules": RULES,
+                "market": _group(pillars, MARKET), "economy": _group(pillars, ECONOMY), "split_note": SPLIT_NOTE}
     composite = sum(p["impulse"] for p in avail) / len(avail)
     frame = pd.concat([to_weekly(p["impulse_history"], 16).rename(p["id"]) for p in avail], axis=1)
     hist = frame.mean(axis=1).where(frame.notna().sum(axis=1) >= math.ceil(len(avail) / 2)).dropna()
@@ -38,4 +62,5 @@ def consolidate(pillars: list[dict]) -> dict:
         "composite": round(composite, 2), "accel": None if accel is None else round(accel, 2),
         "state": state_of(composite), "trend": trend_of(accel), "breadth": breadth, "excluded": excluded,
         "composite_history": hist, "pillar_history": frame, "rules": RULES,
+        "market": _group(pillars, MARKET), "economy": _group(pillars, ECONOMY), "split_note": SPLIT_NOTE,
     }

@@ -24,7 +24,8 @@ def net_liquidity(walcl: pd.Series, tga: pd.Series, rrp: pd.Series) -> pd.Series
     """WALCL − TGA − ON RRP on Fed balance-sheet Wednesdays (USD bn). RRP before its 2013 launch = 0."""
     idx = walcl.dropna().index.intersection(tga.dropna().index)
     w, t = walcl.reindex(idx), tga.reindex(idx)
-    r = asof_align(rrp, idx, tolerance_days=5, before_start=0.0)
+    # ON RRP is overnight: FRED lists only days with operations, so a gap means nothing outstanding (= 0)
+    r = asof_align(rrp, idx, tolerance_days=5, before_start=0.0).fillna(0.0)
     return (w - t - r).dropna()
 
 
@@ -39,7 +40,7 @@ def assess(ctx) -> dict:
     decomp, drivers = {}, []
     if len(nl) > 14:
         idx = nl.index
-        r = asof_align(rrp, idx, 5, 0.0)
+        r = asof_align(rrp, idx, 5, 0.0).fillna(0.0)
         d = lambda x: last_change(x.reindex(idx))  # noqa: E731
         decomp = {"total": d(nl), "fed_assets": d(walcl), "tga": -d(tga), "rrp": -d(r)}
         decomp = {k: round(v, 1) for k, v in decomp.items() if v is not None}

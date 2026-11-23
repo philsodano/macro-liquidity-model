@@ -103,3 +103,23 @@ def test_fmt_level_has_no_sign():
     from macro.liquidity.common import fmt_bn, fmt_level
     assert fmt_level(10540) == "$10.54tn" and fmt_level(891) == "$891bn"
     assert fmt_bn(-345) == "−$345bn"
+
+
+def test_net_liquidity_rrp_gaps_are_zero():
+    idx = wed(6)
+    walcl = pd.Series(7000.0, index=idx)
+    tga = pd.Series(800.0, index=idx)
+    rrp = pd.Series([200.0, 150.0], index=[idx[0], idx[5]])  # no operations in between = nothing outstanding
+    out = central_bank.net_liquidity(walcl, tga, rrp)
+    assert len(out) == 6 and out.iloc[2] == 6200.0 and out.iloc[5] == 6050.0
+
+
+def test_consolidate_splits_market_and_economy():
+    ps = [_pillar("central_bank", 1.0), _pillar("global", 0.6), _pillar("private_credit", -0.4),
+          _pillar("fiscal", -1.0), _pillar("banking", -1.0), _pillar("ai_capex", 2.0)]
+    out = consolidate.consolidate(ps)
+    assert out["market"]["members"] == ["central_bank", "global", "private_credit"]
+    assert out["market"]["composite"] == pytest.approx(0.4, abs=0.01)
+    assert out["economy"]["composite"] == pytest.approx(0.0, abs=0.01)
+    assert out["composite"] == pytest.approx(0.2, abs=0.01)
+    assert len(out["market"]["history"]) > 0

@@ -10,4 +10,6 @@ def assess_all(ctx) -> dict:
     pillars = [m.assess(ctx) for m in PILLAR_MODULES]
     comp = consolidate.consolidate(pillars)
     ctx.put("LIQ_COMPOSITE", comp["composite_history"])
+    ctx.put("LIQ_MARKET", comp["market"]["history"])
+    ctx.put("LIQ_ECONOMY", comp["economy"]["history"])
     return {"pillars": pillars, "consolidated": comp}
