@@ -79,7 +79,7 @@ def assess(ctx) -> dict:
         if ctx.has(sid):
             s = ctx.summary(sid)
             if s["yoy"] is not None:
-                drivers.append(f"{label} {s['yoy']:+.1f}% y/y ({s['obs_date'][:7]}).")
+                drivers.append(f"{label} {s['yoy']:+.1f}% y/y ({s['period']}).")
     drivers.append("Not captured: off-balance-sheet structures (e.g. joint-venture data centers funded by private "
                    "credit, operating leases not yet started). These move debt off hyperscaler balance sheets.")
     charts = [

@@ -1,6 +1,8 @@
 """Pillar 4 — Private credit & capital markets: the price and availability of non-bank credit."""
 from __future__ import annotations
 
+from ..transforms import ordinal
+
 from .common import build_pillar
 
 
@@ -20,7 +22,7 @@ def assess(ctx) -> dict:
             ch = s["changes"].get("13w")
             drivers.append(f"{label} spread {s['latest']:.2f}% "
                            f"({'+' if (ch or 0) >= 0 else '−'}{abs((ch or 0) * 100):.0f}bp over 13 weeks; "
-                           f"{s['pctile']:.0f}th percentile of {s['pctile_years']:.0f} years).")
+                           f"{ordinal(s['pctile'])} percentile of {s['pctile_years']:.0f} years).")
     hy = ctx.summary("BAMLH0A0HYM2") if ctx.has("BAMLH0A0HYM2") else None
     if hy and (hy["changes"].get("13w") or 0) > 0.75:
         drivers.insert(0, f"Warning: high-yield spreads up {hy['changes']['13w'] * 100:.0f}bp in 13 weeks — "
@@ -43,7 +45,7 @@ def assess(ctx) -> dict:
     if ctx.has("NCBDBIQ027S"):
         s = ctx.summary("NCBDBIQ027S")
         if s["yoy"] is not None:
-            drivers.append(f"Corporate bonds outstanding {s['yoy']:+.1f}% y/y ({s['obs_date'][:7]}).")
+            drivers.append(f"Corporate bonds outstanding {s['yoy']:+.1f}% y/y ({s['period']}).")
     charts = [
         {"id": "pc_spreads", "title": "Corporate credit spreads", "units": "%", "start": "2000-01-01",
          "series": [{"key": "BAA10Y", "label": "Baa − 10y Treasury"}, {"key": "BAMLH0A0HYM2", "label": "High-yield OAS"},

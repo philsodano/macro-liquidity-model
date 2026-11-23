@@ -42,7 +42,7 @@ def assess(ctx) -> dict:
     if ctx.has("DRTSCILM"):
         s = ctx.summary("DRTSCILM")
         word = "tightening" if s["latest"] > 0 else "easing"
-        drivers.append(f"Net {abs(s['latest']):.0f}% of banks {word} business-loan standards ({s['obs_date'][:7]}).")
+        drivers.append(f"Net {abs(s['latest']):.0f}% of banks {word} business-loan standards ({s['period']}).")
     charts = [
         {"id": "bank_growth", "title": "Bank credit and loans, growth vs a year ago", "units": "% y/y", "start": "2000-01-01",
          "series": [{"key": "TOTBKCR", "label": "Bank credit", "transform": "yoy"},

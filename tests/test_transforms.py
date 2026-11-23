@@ -109,3 +109,25 @@ def test_summary_reports_percentile_window():
     s = weekly(np.arange(156))  # 3 years
     out = T.summarize(_ind(), s, today=date(2026, 11, 23))
     assert out["pctile_years"] == pytest.approx(3.0, abs=0.1)
+
+
+def test_summary_yoy_skips_missing_base_month_without_interpolating():
+    s = monthly(100 * 1.01 ** np.arange(24), end="2026-10-01").drop(pd.Timestamp("2025-10-01"))
+    out = T.summarize(_ind("M"), s, today=date(2026, 11, 23))
+    assert out["obs_date"] == "2026-10-01"
+    assert out["yoy_date"] == "2026-09-01"
+    assert out["yoy"] == pytest.approx(12.68, abs=0.01)
+
+
+def test_ann_rate_is_date_based_with_gaps():
+    s = monthly(100 * 1.01 ** np.arange(24), end="2026-10-01").drop(pd.Timestamp("2026-08-01"))
+    r = T.ann_rate(s, 3)
+    assert r.loc["2026-10-01"] == pytest.approx(12.68, abs=0.01)
+    assert r.loc["2026-09-01"] == pytest.approx(12.68, abs=0.01)
+
+
+def test_period_and_ordinal_labels():
+    assert T.period_label("2026-04-01", "Q") == "2026 Q2"
+    assert T.period_label("2026-10-01", "M") == "Oct 2026"
+    assert T.period_label("2026-11-18", "W") == "18 Nov 2026"
+    assert [T.ordinal(n) for n in (1, 2, 3, 4, 11, 12, 13, 21, 96)] == ["1st", "2nd", "3rd", "4th", "11th", "12th", "13th", "21st", "96th"]

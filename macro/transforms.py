@@ -75,7 +75,8 @@ def acceleration(s: pd.Series, horizon: str) -> float | None:
 def ann_rate(s: pd.Series, months: int) -> pd.Series:
     """Annualised % growth over `months` for a monthly series."""
     s = _clean(s)
-    return ((s / s.shift(months)) ** (12 / months) - 1) * 100
+    base = s.reindex(s.index - pd.DateOffset(months=months))  # by date, so a missing month never shifts the window
+    return pd.Series(((s.values / base.values) ** (12 / months) - 1) * 100, index=s.index)
 
 
 def yoy(s: pd.Series) -> pd.Series:
@@ -122,6 +123,23 @@ def direction(s: pd.Series, horizon: str) -> str:
     return "up" if c > 0 else "down"
 
 
+def period_label(obs_date: str | None, freq: str) -> str:
+    if not obs_date:
+        return "n/a"
+    d = pd.Timestamp(obs_date)
+    if freq == "Q":
+        return f"{d.year} Q{d.quarter}"
+    if freq == "M":
+        return d.strftime("%b %Y")
+    return f"{d.day} {d.strftime('%b %Y')}"
+
+
+def ordinal(n: float) -> str:
+    n = int(round(n))
+    suffix = "th" if 10 <= n % 100 <= 20 else {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
+    return f"{n}{suffix}"
+
+
 def _r(x, nd=3):
     return None if x is None or (isinstance(x, float) and math.isnan(x)) else round(float(x), nd)
 
@@ -148,10 +166,13 @@ def summarize(ind, s: pd.Series, today: date, first_seen: pd.Series | None = Non
         **meta,
         "latest": _r(s.iloc[-1], 4),
         "obs_date": last.strftime("%Y-%m-%d"),
+        "period": period_label(last.strftime("%Y-%m-%d"), ind.freq),
         "first_seen": fs,
         "changes": {h: _r(change(s, h)) for h in hz},
         "pct_changes": {h: _r(pct_change(s, h), 2) for h in hz},
-        "yoy": _r(yo.iloc[-1], 2) if len(yo.dropna()) else None,
+        # latest computable y/y — a missing base month (e.g. Oct-2025 CPI, never published) is not filled in
+        "yoy": _r(yo.dropna().iloc[-1], 2) if len(yo.dropna()) else None,
+        "yoy_date": yo.dropna().index[-1].strftime("%Y-%m-%d") if len(yo.dropna()) else None,
         "accel": _r(acceleration(s, PRIMARY[ind.freq])),
         "z": _r(zscore(s).iloc[-1], 2),
         "pctile": _r(percentile(s), 1),
