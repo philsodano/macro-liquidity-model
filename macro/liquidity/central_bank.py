@@ -74,13 +74,13 @@ def assess(ctx) -> dict:
                       "bank funding stress; the Fed is adding liquidity to contain it.")
     drivers += stress
     charts = [
-        {"id": "cb_netliq", "title": "Fed net liquidity", "units": "USD bn", "start": "2015-01-01",
+        {"id": "cb_netliq", "explain": "Blue: cash the Fed leaves in the financial system after Treasury's cash account and money funds' parked cash are taken out. Orange: the Fed's total balance sheet. When the blue line rises, more cash is sloshing around banks and markets; when it falls, cash is being drained. The direction over the last few months matters more than the level.", "title": "Fed net liquidity", "units": "USD bn", "start": "2015-01-01",
          "series": [{"key": "NETLIQ", "label": "Net liquidity"}, {"key": "WALCL", "label": "Fed balance sheet"}],
          "source": "Federal Reserve H.4.1; NY Fed (via FRED)", "note": "Net liquidity = Fed assets − Treasury cash − reverse repo"},
-        {"id": "cb_drains", "title": "What's absorbing Fed liquidity", "units": "USD bn", "start": "2019-01-01",
+        {"id": "cb_drains", "explain": "Three places where money sits idle instead of circulating. Treasury cash (TGA) and reverse repo pull money out of the system; bank reserves are what is left for banks. A rising TGA or reverse repo drains liquidity; reverse repo near zero means that buffer is used up.", "title": "What's absorbing Fed liquidity", "units": "USD bn", "start": "2019-01-01",
          "series": [{"key": "WTREGEN", "label": "Treasury cash (TGA)"}, {"key": "RRPONTSYD", "label": "Reverse repo"},
                     {"key": "WRESBAL", "label": "Bank reserves"}], "source": "Federal Reserve H.4.1 (via FRED)"},
-        {"id": "cb_stress", "title": "Repo stress: SOFR minus IORB", "units": "bp", "start": "2021-08-01",
+        {"id": "cb_stress", "explain": "The overnight borrowing rate (SOFR) minus the rate the Fed pays banks on reserves (IORB). Normally below zero. When it rises above zero, cash is getting scarce — banks and dealers are paying up to borrow (as in September 2019).", "title": "Repo stress: SOFR minus IORB", "units": "bp", "start": "2021-08-01",
          "series": [{"key": "SOFR_IORB", "label": "SOFR − IORB"}], "source": "NY Fed; Federal Reserve (via FRED)",
          "note": "Above zero = reserves no longer abundant"},
     ]

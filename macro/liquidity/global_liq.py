@@ -68,11 +68,11 @@ def assess(ctx) -> dict:
         if ch is not None:
             drivers.append(f"Foreign central banks' Treasuries at the Fed {fmt_bn(ch)} over 13 weeks.")
     charts = [
-        {"id": "gl_cb", "title": "Major central bank balance sheets in dollars", "units": "USD bn", "start": "2008-01-01",
+        {"id": "gl_cb", "explain": "The combined balance sheets of the European Central Bank and Bank of Japan converted to dollars (and the same plus the Fed, for context). Growing balance sheets add global liquidity that often flows into US markets. Currency moves can change the dollar value even when the banks do nothing.", "title": "Major central bank balance sheets in dollars", "units": "USD bn", "start": "2008-01-01",
          "series": [{"key": "G3_CB_USD", "label": "Fed + ECB + BoJ"}, {"key": "G2_CB_USD", "label": "ECB + BoJ"}],
          "source": "Federal Reserve, ECB, Bank of Japan, FX rates (via FRED)",
          "note": "The Fed is counted in Fed liquidity; only ECB + BoJ drive this pillar"},
-        {"id": "gl_usd", "title": "US dollar (trade-weighted)", "units": "index", "start": "2006-01-01",
+        {"id": "gl_usd", "explain": "The dollar against a basket of trading partners' currencies. A rising dollar makes dollar borrowing harder for the rest of the world and tightens global financial conditions; a falling dollar loosens them.", "title": "US dollar (trade-weighted)", "units": "index", "start": "2006-01-01",
          "series": [{"key": "DTWEXBGS", "label": "Broad dollar"}], "source": "Federal Reserve H.10 (via FRED)"},
     ]
     return build_pillar(

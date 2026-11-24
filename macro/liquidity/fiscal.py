@@ -39,10 +39,10 @@ def assess(ctx) -> dict:
     if tga and tga["latest"] is not None:
         drivers.append(f"Treasury cash balance {fmt_level(tga['latest'])} ({tga['obs_date']}) — counted in Fed liquidity.")
     charts = [
-        {"id": "fiscal_deficit", "title": "Federal deficit, rolling 12 months", "units": "% of GDP", "start": "2000-01-01",
+        {"id": "fiscal_deficit", "explain": "Blue: how much more the government spent than it collected over the last 12 months, as a share of the economy. Orange: the change versus a year earlier — the 'fiscal impulse'. Bigger deficits put more money into household and business pockets; growth reacts to the change, not the level.", "title": "Federal deficit, rolling 12 months", "units": "% of GDP", "start": "2000-01-01",
          "series": [{"key": "DEFICIT_12M", "label": "Deficit"}, {"key": "FISCAL_IMPULSE", "label": "Change vs year ago"}],
          "source": "US Treasury Monthly Treasury Statement; BEA GDP (via FRED)"},
-        {"id": "fiscal_bills", "title": "Share of debt in T-bills", "units": "%", "start": "2005-01-01",
+        {"id": "fiscal_bills", "explain": "The share of government debt in short-term bills. Bills are mostly bought with idle money-fund cash, so funding with bills drains less from markets than long-term bonds. A rising share is quietly supportive for liquidity.", "title": "Share of debt in T-bills", "units": "%", "start": "2005-01-01",
          "series": [{"key": "BILL_SHARE", "label": "Bills ÷ marketable debt"}],
          "source": "US Treasury Monthly Statement of the Public Debt"},
     ]

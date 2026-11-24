@@ -43,3 +43,17 @@ def test_snapshot_has_positioning():
         assert k in pos
     assert any(c["section"] == "positioning" for c in snap["charts"])
     assert "positioning" in snap["scenarios"]["group_scores"]
+
+
+def test_liquidity_charts_have_explanations():
+    import json
+    from pathlib import Path
+    from datetime import date
+    from macro.registry import load_registry, load_settings
+    from macro.snapshot import build_snapshot
+    from macro.store import Store
+    snap = build_snapshot(Store(), load_registry(), load_settings(), today=date(2026, 11, 24), write=False, research=False)
+    liq = [c for c in snap["charts"] if c["section"] == "liquidity" or c["section"].startswith("pillar:")]
+    assert len(liq) >= 14
+    for c in liq:
+        assert len(c.get("explain", "")) > 40, c["id"]

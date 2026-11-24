@@ -47,11 +47,11 @@ def assess(ctx) -> dict:
         if s["yoy"] is not None:
             drivers.append(f"Corporate bonds outstanding {s['yoy']:+.1f}% y/y ({s['period']}).")
     charts = [
-        {"id": "pc_spreads", "title": "Corporate credit spreads", "units": "%", "start": "2000-01-01",
+        {"id": "pc_spreads", "explain": "The extra yield companies pay over Treasuries to borrow. Lower = credit is cheap and easy to get; rising spreads mean lenders are demanding more for risk and weaker companies struggle to refinance. The long Baa line goes back decades; the high-yield and investment-grade lines cover only about 3 years here.", "title": "Corporate credit spreads", "units": "%", "start": "2000-01-01",
          "series": [{"key": "BAA10Y", "label": "Baa − 10y Treasury"}, {"key": "BAMLH0A0HYM2", "label": "High-yield OAS"},
                     {"key": "BAMLC0A0CM", "label": "Investment-grade OAS"}],
          "source": "Moody's; ICE BofA (via FRED; ICE history limited to ~3 years)"},
-        {"id": "pc_bdc", "title": "Private credit prices", "units": "USD (adj.)", "start": "2018-01-01",
+        {"id": "pc_bdc", "explain": "Share prices of listed private-credit lenders (business development companies) and a leveraged-loan fund. These trade every day, unlike private credit itself, so falling prices are an early warning that investors expect losses in private lending.", "title": "Private credit prices", "units": "USD (adj.)", "start": "2018-01-01",
          "series": [{"key": "BIZD", "label": "BDC ETF"}, {"key": "BKLN", "label": "Leveraged loans ETF"}],
          "source": "Tiingo"},
     ]

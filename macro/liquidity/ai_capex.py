@@ -90,10 +90,10 @@ def assess(ctx) -> dict:
     drivers.append("Not captured: off-balance-sheet structures (e.g. joint-venture data centers funded by private "
                    "credit, operating leases not yet started). These move debt off hyperscaler balance sheets.")
     charts = [
-        {"id": "ai_capex", "title": "Big Tech capex vs operating cash flow", "units": "USD bn per quarter", "start": "2015-01-01",
+        {"id": "ai_capex", "explain": "Blue bars: quarterly spending on data centers, servers and equipment by Microsoft, Alphabet, Amazon, Meta and Oracle. Orange bars: the cash their businesses generate. When capex runs above cash flow, the gap must be filled by borrowing or by spending cash reserves.", "title": "Big Tech capex vs operating cash flow", "units": "USD bn per quarter", "start": "2015-01-01",
          "series": [{"key": "AI_CAPEX_TOTAL", "label": "Capex (5 firms)"}, {"key": "AI_OCF_TOTAL", "label": "Operating cash flow"}],
          "source": "SEC 10-Q/10-K XBRL (MSFT, GOOGL, AMZN, META, ORCL)", "kind": "bar"},
-        {"id": "ai_build", "title": "Physical buildout", "units": "USD bn, annual rate", "start": "2015-01-01",
+        {"id": "ai_build", "explain": "Spending on new construction (annual rate): offices and data centers, power plants and grid, and factories including chip plants. This is the physical side of the AI build-out — where the money actually lands in the economy.", "title": "Physical buildout", "units": "USD bn, annual rate", "start": "2015-01-01",
          "series": [{"key": "PROFCONS", "label": "Office + data centers"}, {"key": "PRPWRCONS", "label": "Power"},
                     {"key": "PRMFGCONS", "label": "Factories (incl. chip fabs)"}],
          "source": "Census construction spending (via FRED)"},

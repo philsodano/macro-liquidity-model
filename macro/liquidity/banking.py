@@ -44,15 +44,15 @@ def assess(ctx) -> dict:
         word = "tightening" if s["latest"] > 0 else "easing"
         drivers.append(f"Net {abs(s['latest']):.0f}% of banks {word} business-loan standards ({s['period']}).")
     charts = [
-        {"id": "bank_growth", "title": "Bank credit and loans, growth vs a year ago", "units": "% y/y", "start": "2000-01-01",
+        {"id": "bank_growth", "explain": "Growth over the past year in bank credit (all lending and securities), bank loans, and the money supply (M2). Banks create new money when they lend, so faster growth means more money flowing into the economy. Deposits and M2 are shown for context, not added on top.", "title": "Bank credit and loans, growth vs a year ago", "units": "% y/y", "start": "2000-01-01",
          "series": [{"key": "TOTBKCR", "label": "Bank credit", "transform": "yoy"},
                     {"key": "TOTLL", "label": "Loans", "transform": "yoy"},
                     {"key": "M2SL", "label": "M2 money", "transform": "yoy"}],
          "source": "Federal Reserve H.8 and H.6 (via FRED)"},
-        {"id": "bank_sloos", "title": "Banks tightening lending standards", "units": "net % of banks", "start": "1995-01-01",
+        {"id": "bank_sloos", "explain": "Share of banks tightening their lending rules, from the Fed's survey of loan officers. Above zero = more banks tightening than easing. Tighter rules today usually mean slower loan growth and more defaults 6–12 months later.", "title": "Banks tightening lending standards", "units": "net % of banks", "start": "1995-01-01",
          "series": [{"key": "DRTSCILM", "label": "Business loans"}, {"key": "DRTSCLCC", "label": "Credit cards"}],
          "source": "Federal Reserve Senior Loan Officer Survey (via FRED)", "note": "Above 0 = more banks tightening"},
-        {"id": "bank_ndfi", "title": "Bank loans to nonbank lenders", "units": "USD bn", "start": "2015-01-01",
+        {"id": "bank_ndfi", "explain": "Loans from banks to non-bank lenders — private credit funds, business development companies, finance companies. This is how bank money feeds private credit. Fast growth shows banks' indirect exposure to private credit is rising.", "title": "Bank loans to nonbank lenders", "units": "USD bn", "start": "2015-01-01",
          "series": [{"key": "LNFACBW027SBOG", "label": "Loans to nondepository financials"}],
          "source": "Federal Reserve H.8 (via FRED)", "note": "Bank money funding private credit, BDCs, finance companies"},
     ]

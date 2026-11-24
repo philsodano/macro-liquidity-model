@@ -117,6 +117,11 @@ details.more p { margin-top: 4px; }
 .chart svg text { fill: var(--ink-3); font-family: var(--f-data); font-size: 10.5px; }
 .chart svg text.dl { fill: var(--ink-2); font-family: var(--f-body); font-size: 11px; font-weight: 600; }
 .cap { color: var(--ink-3); font-size: .75rem; }
+.explain { color: var(--ink-2); font-size: .84rem; max-width: 80ch; }
+.now { font-size: .8rem; color: var(--ink); background: var(--surface-2); border-radius: 4px; padding: 4px 8px; }
+.now b { font-weight: 600; }
+.read { font-size: .84rem; color: var(--ink-2); }
+.desc { display: block; font-size: .78rem; color: var(--ink-3); font-weight: 400; margin-top: 2px; max-width: 60ch; }
 .tip { position: absolute; pointer-events: none; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; font-size: .78rem;
   box-shadow: 0 4px 14px rgba(0, 0, 0, .12); z-index: 3; min-width: 140px; }
 .tip b { font-family: var(--f-data); font-weight: 500; }
@@ -213,7 +218,7 @@ function metaText(s) {
   const fs = s.first_seen ? ` · first seen ${s.first_seen}` : "";
   return `${s.what || ""} ${s.why || ""} Source: ${SRC[s.source] || s.source} ${s.source_id || ""} · ${{ D: "daily", W: "weekly", M: "monthly", Q: "quarterly" }[s.freq] || s.freq} · observation ${s.obs_date || "—"}${fs} · ${s.kind === "estimate" ? "model estimate" : "published data"}.`;
 }
-function summaryTable(rows) {
+function summaryTable(rows, showWhy) {
   rows = (rows || []).filter(Boolean);
   if (!rows.length) return h("p", { class: "empty" }, "No data.");
   const primary = r => { const c = r.changes || {}; const k = { D: "13w", W: "13w", M: "3m", Q: "6m" }[r.freq]; return [k, c[k]]; };
@@ -223,7 +228,8 @@ function summaryTable(rows) {
     h("tbody", {}, rows.map(r => {
       const [k, c] = primary(r);
       return h("tr", {},
-        h("td", {}, h("details", {}, h("summary", {}, r.short || r.name, r.display_only ? h("span", { class: "tag", style: "margin-left:6px" }, "shown, not counted") : null), h("p", {}, metaText(r)))),
+        h("td", {}, h("details", {}, h("summary", {}, r.short || r.name, r.display_only ? h("span", { class: "tag", style: "margin-left:6px" }, "shown, not counted") : null,
+          showWhy && (r.what || r.why) ? h("span", { class: "desc" }, [r.what, r.why].filter(Boolean).join(" ")) : null), h("p", {}, metaText(r)))),
         h("td", { class: "n" }, money(r.latest, r.units)), h("td", { class: "small muted" }, r.units),
         h("td", { class: "n" }, c == null ? "—" : `${signed(c)} (${k})`),
         h("td", { class: "n" }, r.yoy == null ? "—" : signed(r.yoy, 1) + "%"),
@@ -264,7 +270,19 @@ function chartCard(spec) {
   box.append(h("div", { class: "sub" }, `${spec.units} · ${new Date(first).getUTCFullYear()}–${new Date(last).toISOString().slice(0, 10)}`));
   if (series.length > 1) box.append(h("div", { class: "legend" }, series.map(s => h("span", {}, h("i", { style: `background:${s.color}` }), s.label))));
   const holder = h("div", { style: "position:relative" });
-  box.append(holder, h("p", { class: "cap" }, [`Source: ${spec.source}.`, spec.note ? ` ${spec.note}.` : "", spec.recessions ? " Shaded: US recessions (NBER)." : ""].join("")));
+  const nowLine = () => {
+    const parts = series.slice(0, 4).map(s => {
+      const [d, v] = s.pts[s.pts.length - 1];
+      const prior = s.pts.filter(p => p[0] <= d - 91 * 864e5).pop();
+      const ch = prior ? v - prior[1] : null;
+      const d_ = Math.abs(v) >= 100 ? 0 : Math.abs(v) >= 10 ? 1 : 2;
+      return h("span", {}, h("b", {}, s.label + ": "), fmt(v, d_), ch == null ? "" : ` (${signed(ch, d_)} vs 3 months earlier)`);
+    });
+    const last = new Date(Math.max(...series.map(s => s.pts[s.pts.length - 1][0]))).toISOString().slice(0, 10);
+    return h("p", { class: "now" }, "Now, as of ", last, ": ", parts.flatMap((p, i) => i ? [" · ", p] : [p]));
+  };
+  box.append(holder, spec.explain ? h("p", { class: "explain" }, spec.explain) : null, nowLine(),
+    h("p", { class: "cap" }, [`Source: ${spec.source}.`, spec.note ? ` ${spec.note}.` : "", spec.recessions ? " Shaded: US recessions (NBER)." : ""].join("")));
   const draw = () => drawSeries(holder, spec, series);
   requestAnimationFrame(draw);
   let t; new ResizeObserver(() => { clearTimeout(t); t = setTimeout(draw, 120); }).observe(holder);
@@ -390,31 +408,45 @@ function viewCentralBanks(sn) {
   ];
 }
 
+function readScores(imp, acc, title) {
+  if (imp == null) return "No score yet: not enough recent data.";
+  const lvl = imp > 1.5 ? "adding liquidity much faster than usual" : imp > 0.5 ? "adding liquidity faster than usual" :
+    imp < -1.5 ? "draining liquidity much faster than usual" : imp < -0.5 ? "draining liquidity faster than usual" : "close to its normal pace";
+  const mv = acc == null ? "" : acc > 0.3 ? ", and the trend is improving" : acc < -0.3 ? ", and the trend is getting worse" : ", and the trend is steady";
+  return `How to read it: impulse ${signed(imp)} means ${title} is ${lvl}${mv} (13-week change ${signed(acc)}). ` +
+    "Impulse compares the recent change with the last 10 years: 0 = normal, above +0.5 = adding, below −0.5 = draining.";
+}
 function pillarCard(p) {
   const kids = [
     h("div", { style: "display:flex;flex-wrap:wrap;gap:8px;align-items:center" }, h("h3", {}, p.title), pill(STATE, p.state),
       h("span", { class: "pill p-accent" }, p.trend), h("span", { class: "small muted num" }, `impulse ${signed(p.impulse)} · 13-week change ${signed(p.accel)}`), pill(FRESH, p.freshness)),
     h("p", { class: "lede" }, p.blurb),
+    h("p", { class: "read" }, readScores(p.impulse, p.accel, p.title)),
     h("ul", { class: "plain" }, p.drivers.map(d => h("li", {}, d))),
   ];
   if (p.id === "ai_capex" && p.funding_last4q) {
     const f = p.funding_last4q;
     kids.push(h("div", { class: "tbl-wrap" }, h("table", {}, h("thead", {}, h("tr", {}, h("th", {}, "Last 4 quarters, 5 hyperscalers"), h("th", { class: "n" }, "USD bn"))),
-      h("tbody", {}, [["Capex", f.capex], ["Operating cash flow", f.ocf], ["Debt raised", f.debt_issued], ["Finance-lease principal paid", f.lease_principal]].map(([a, b]) => h("tr", {}, h("td", {}, a), h("td", { class: "n" }, fmt(b, 0))))))));
+      h("tbody", {}, [["Capex", f.capex, "Cash spent on data centers, servers, chips and buildings."],
+        ["Operating cash flow", f.ocf, "Cash the businesses themselves generated — the main way capex is paid for."],
+        ["Debt raised", f.debt_issued, "New borrowing (bonds and loans). Money from investors' savings, not newly created."],
+        ["Finance-lease principal paid", f.lease_principal, "Repayments on equipment and buildings acquired through leases rather than bought outright."]]
+        .map(([a, b, d]) => h("tr", {}, h("td", {}, a, h("span", { class: "desc" }, d)), h("td", { class: "n" }, fmt(b, 0))))))));
     if (p.capex_by_firm_4q) kids.push(h("p", { class: "small" }, "Capex by firm, last 4 quarters: " + Object.entries(p.capex_by_firm_4q).map(([k, v]) => `${k} $${fmt(v, 0)}bn`).join(" · ")));
   }
   kids.push(chartGrid(chartsFor("pillar:" + p.id)));
   kids.push(h("details", {}, h("summary", {}, "How this pillar works"),
     h("ul", { class: "plain small" }, h("li", {}, h("b", {}, "Creates, moves or destroys liquidity? "), p.classification), h("li", {}, h("b", {}, "How it reaches the economy: "), p.transmission), h("li", {}, h("b", {}, "Timing: "), p.timing),
       h("li", {}, h("b", {}, "Core measure: "), p.core.map(c => c.short).join(", "), ". Impulse = z-score of its 13- and 26-week change vs the last 10 years; above +0.5 adding, below −0.5 draining."))));
-  kids.push(h("details", {}, h("summary", {}, `Indicators (${p.members.length})`), summaryTable([...p.core, ...p.members.filter(m => !p.core.find(c => c.id === m.id))])));
+  kids.push(h("details", {}, h("summary", {}, `Indicators (${p.members.length})`), summaryTable([...p.core, ...p.members.filter(m => !p.core.find(c => c.id === m.id))], true)));
   return h("div", { class: "card", id: "pillar-" + p.id }, kids);
 }
 
 function viewLiquidity(sn) {
   const c = sn.liquidity.consolidated;
   const grp = (label, g, note) => h("div", { class: "tile t-" + (g.state === "adding" ? "good" : g.state === "draining" ? "bad" : "neutral") },
-    h("div", { class: "lab" }, label), h("div", { class: "val num" }, signed(g.composite)), h("div", { style: "display:flex;gap:6px;flex-wrap:wrap" }, pill(STATE, g.state), h("span", { class: "pill p-accent" }, g.trend)), h("div", { class: "det" }, note));
+    h("div", { class: "lab" }, label), h("div", { class: "val num" }, signed(g.composite)), h("div", { style: "display:flex;gap:6px;flex-wrap:wrap" }, pill(STATE, g.state), h("span", { class: "pill p-accent" }, g.trend)), h("div", { class: "det" }, note),
+    h("div", { class: "desc" }, g.composite == null ? "" : `${signed(g.composite)} = ${Math.abs(g.composite) < 0.5 ? "within the normal range" : g.composite > 0 ? "liquidity growing faster than usual" : "liquidity shrinking faster than usual"}; trend ${g.trend} over the last 13 weeks.`));
   return [
     sectionHead("Liquidity engine", "Where liquidity is created, destroyed and moved — and whether that is speeding up. Scores: 0 = normal, ±1 = unusual."),
     h("div", { class: "grid" },

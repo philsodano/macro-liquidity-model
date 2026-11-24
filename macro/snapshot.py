@@ -72,13 +72,13 @@ def chart_series(ctx, key: str, transform: str | None, start: str) -> pd.Series:
 
 def collect_charts(liq: dict, a: dict) -> list[dict]:
     charts = [
-        {"id": "liq_split", "title": "Liquidity impulse: market vs economy", "units": "z-score (0 = normal)",
+        {"id": "liq_split", "explain": "Each line scores whether liquidity is growing faster (+) or slower (−) than normal, on a common scale where 0 is normal and ±1 is unusual. Market liquidity (Fed, global, credit) has historically lined up with stock returns; economy liquidity (deficits, bank lending, AI capex) feeds growth with a longer lag. Shaded areas are recessions.", "title": "Liquidity impulse: market vs economy", "units": "z-score (0 = normal)",
          "start": "2005-01-01", "section": "liquidity",
          "series": [{"key": "LIQ_MARKET", "label": "Market liquidity (Fed, global, credit)"},
                     {"key": "LIQ_ECONOMY", "label": "Economy liquidity (deficits, banks, AI)"}],
          "source": "Model estimate from Fed, Treasury, ECB, BoJ, FRED data", "note": "Above +0.5 = adding; below −0.5 = draining",
          "recessions": True},
-        {"id": "liq_pillars", "title": "Liquidity impulse by pillar", "units": "z-score", "start": "2015-01-01",
+        {"id": "liq_pillars", "explain": "The same score for each of the six liquidity sources. Above +0.5 = adding liquidity faster than usual; below −0.5 = draining. Watch which pillars are moving and whether they agree.", "title": "Liquidity impulse by pillar", "units": "z-score", "start": "2015-01-01",
          "section": "liquidity", "series": [{"key": f"IMPULSE_{p['id']}", "label": p["title"]} for p in liq["pillars"]],
          "source": "Model estimate"},
     ]
