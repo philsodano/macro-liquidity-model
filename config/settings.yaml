@@ -10,6 +10,10 @@ refresh_days:
   tiingo: 1
   files: 7
   derived: 0
+  cftc: 1
+  ofr: 7
+  nyfedpd: 1
+  finra: 7
 # Extra days after an expected release before a series counts as stale.
 freshness_grace_days:
   D: 5

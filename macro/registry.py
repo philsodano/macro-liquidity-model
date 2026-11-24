@@ -8,7 +8,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parent.parent
 FREQS = {"D", "W", "M", "Q"}
-SOURCES = {"fred", "treasury", "nyfed", "ecb", "boe", "bis", "sec", "tiingo", "files", "derived"}
+SOURCES = {"fred", "treasury", "nyfed", "ecb", "boe", "bis", "sec", "tiingo", "files", "derived", "cftc", "ofr", "nyfedpd", "finra"}
 SIGNALS = {"leading", "coincident", "lagging"}
 PILLARS = {"central_bank", "fiscal", "banking", "private_credit", "global", "ai_capex"}
 
