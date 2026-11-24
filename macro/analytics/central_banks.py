@@ -87,7 +87,11 @@ def assess(ctx) -> dict:
          "series": [{"key": "DFF", "label": "Fed"}, {"key": "ECBDFR", "label": "ECB"}, {"key": "BOE_RATE", "label": "BoE"},
                     {"key": "IRSTCI01JPM156N", "label": "BoJ (call rate)"}], "source": "Fed, ECB, BoE, OECD (via FRED/BoE)"},
     ]
-    return {"signals": sig, "notes": notes, "rates_table": table, "charts": charts,
+    from ..narrative import policy_direction
+    n_priced = cuts_priced(effr, float(ctx.s("DGS1").iloc[-1])) if effr is not None and ctx.has("DGS1") else None
+    direction = policy_direction(ctx.s("DFEDTARU") if ctx.has("DFEDTARU") else dff, n_priced)
+    notes.insert(0, f"Policy direction: {direction}.")
+    return {"signals": sig, "notes": notes, "rates_table": table, "charts": charts, "direction": direction,
             "real_rate": rr, "neutral_assumption": NEUTRAL_REAL,
             "summaries": [ctx.summary(x) for x in ("DFF", "DFEDTARU", "IORB", "SOFR", "DTB3", "DTB6", "DGS1", "DGS2",
                                                    "DFII5", "NFCI", "ANFCI", "ECBDFR", "BOE_RATE", "IRSTCI01JPM156N",

@@ -5,6 +5,38 @@ from __future__ import annotations
 STATE_WORD = {"adding": "adding liquidity", "draining": "draining liquidity", "neutral": "neutral", "n/a": "no data"}
 
 
+def policy_direction(target_upper, cuts_priced: float | None) -> str:
+    """Recent move in the Fed's target (last ~6 months) first; if none, what markets price."""
+    t = target_upper.dropna()
+    if len(t) > 1:
+        back = t[t.index <= t.index[-1] - __import__("pandas").Timedelta(days=180)]
+        ch = float(t.iloc[-1] - (back.iloc[-1] if len(back) else t.iloc[0]))
+        if ch > 0.01:
+            return "hiking"
+        if ch < -0.01:
+            return "cutting"
+    if cuts_priced is not None and cuts_priced > 1:
+        return "on hold, cuts expected"
+    if cuts_priced is not None and cuts_priced < -1:
+        return "on hold, hikes expected"
+    return "on hold"
+
+
+def fed_lines(direction: str, ff: float | None, core: float | None) -> dict:
+    ffs, cs = _f(ff, "{:.2f}%"), _f(core, "{:.1f}%")
+    if direction in ("hiking", "on hold, hikes expected"):
+        return {"base": f"Fed holds near {ffs} or hikes once more; inflation ({cs}) keeps it leaning tighter.",
+                "bull": "Inflation cools enough for the Fed to stop tightening and later ease.",
+                "bear": "The Fed keeps tightening into a slowdown because inflation won't fall."}
+    if direction == "cutting":
+        return {"base": f"Fed keeps cutting slowly toward neutral; inflation ({cs}) limits the pace.",
+                "bull": "Fed cuts because inflation lets it, not because growth breaks.",
+                "bear": "Fed cuts late, after growth has already broken."}
+    return {"base": f"Fed stays on hold near {ffs}; inflation ({cs}) decides the next move.",
+            "bull": "Inflation cools and the Fed can ease.",
+            "bear": "The Fed is stuck: inflation blocks easing while growth weakens."}
+
+
 def _f(x, fmt="{:.2f}", na="n/a"):
     return na if x is None else fmt.format(x)
 
@@ -34,7 +66,8 @@ def tiles(liq: dict, a: dict, scen: dict) -> list[dict]:
                 "tone": _tone(ec["composite"])})
     rr = cb.get("real_rate")
     mp = sig.get("market_path")
-    out.append({"id": "policy", "label": "Fed policy", "value": f"Real rate {_f(rr, '{:+.2f}%')}",
+    direction = cb.get("direction", "on hold")
+    out.append({"id": "policy", "label": "Fed policy", "value": f"{direction.capitalize()} · real rate {_f(rr, '{:+.2f}%')}",
                 "detail": (mp.evidence.split(":")[1].split("(")[0].strip().capitalize() + "." if mp else "No market path."),
                 "tone": _tone(sig["real_policy_rate"].score if "real_policy_rate" in sig else None)})
     fc = sig.get("fin_conditions")
@@ -100,6 +133,7 @@ def scenarios(liq: dict, a: dict, scen: dict) -> dict:
     claims = next((s for s in a["consumer"]["labour"] if s["id"] == "ICSA"), {}).get("latest")
     c = liq["consolidated"]
     p = scen["final"]
+    fed = fed_lines(a["central_banks"].get("direction", "on hold"), ff, core)
     bull_trig = [f"High-yield spread back below {_f(hyv - 0.5 if hyv else None, '{:.1f}%')}",
                  "Dollar down 3%+ over 3 months", "Market liquidity above +0.5 and rising",
                  f"Core PCE 3-month pace under {_f((core or 3) - 0.5, '{:.1f}%')}"]
@@ -110,7 +144,7 @@ def scenarios(liq: dict, a: dict, scen: dict) -> dict:
         "base": {"name": "Base: slow grind", "probability": p["base"],
                  "economy": f"Growth near trend; the cycle reads '{a['cycle']['label']}'.",
                  "liquidity": f"Market liquidity stays {c['market']['state']}; deficits keep adding to incomes.",
-                 "central_bank": f"Fed near {_f(ff, '{:.2f}%')}; inflation ({_f(core, '{:.1f}%')}) keeps cuts slow.",
+                 "central_bank": fed["base"],
                  "consumer": a["consumer"]["diagnosis_text"],
                  "markets": "Returns come from income more than multiple expansion; dispersion stays high.",
                  "confirm": ["Claims stay low", "Credit spreads stable", "Core inflation drifts down slowly"],
@@ -118,14 +152,14 @@ def scenarios(liq: dict, a: dict, scen: dict) -> dict:
         "bull": {"name": "Bull: liquidity turns up", "probability": p["bull"],
                  "economy": "AI investment and productivity lift growth while inflation cools.",
                  "liquidity": "Dollar weakens, credit spreads tighten, foreign central banks ease.",
-                 "central_bank": "Fed cuts because inflation lets it, not because growth breaks.",
+                 "central_bank": fed["bull"],
                  "consumer": "Real wages rise; spending is funded by income, not borrowing.",
                  "markets": "Equities and credit outperform; small caps and cyclicals lead; breadth widens.",
                  "confirm": bull_trig, "invalidate": bear_trig[:2]},
         "bear": {"name": "Bear: credit cracks, Fed boxed in", "probability": p["bear"],
                  "economy": "Leading indicators roll over and unemployment rises.",
                  "liquidity": "Credit spreads widen, the dollar rallies, market liquidity drains.",
-                 "central_bank": "Inflation stops the Fed from easing early; it cuts late.",
+                 "central_bank": fed["bear"],
                  "consumer": "Lower-income stress spreads: delinquencies rise, saving is already low.",
                  "markets": f"Equities de-rate from a thin risk premium; Treasuries and cash outperform.",
                  "confirm": bear_trig, "invalidate": bull_trig[:2]},

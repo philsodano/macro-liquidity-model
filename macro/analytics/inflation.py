@@ -20,6 +20,13 @@ def _rates(s: pd.Series) -> dict:
             "yoy_date": y.index[-1].strftime("%Y-%m"), "3m_date": a3.index[-1].strftime("%Y-%m")}
 
 
+def direction(rates: dict) -> float | None:
+    """Average of (3-month annualised − 12-month) for core PCE and core CPI: > 0 = core inflation speeding up.
+    Using both keeps the read current when one release (PCE) lags the other (CPI)."""
+    d = [r["3m"] - r["yoy"] for k, r in rates.items() if k in ("PCEPILFE", "CPILFESL") and r]
+    return sum(d) / len(d) if d else None
+
+
 def decompose(supercore_3m, wages_yoy, core_goods_3m, energy_yoy, import_yoy) -> tuple[str, str]:
     demand_hot = (supercore_3m or 0) > 3.0 or (wages_yoy or 0) > 4.0
     supply_hot = (core_goods_3m or 0) > 1.5 or (energy_yoy or 0) > 10 or (import_yoy or 0) > 3
@@ -63,9 +70,9 @@ def assess(ctx) -> dict:
     if core:
         gap = core["3m"] - TARGET
         flex = "high" if gap < 0.5 else "limited" if gap < 1.25 else "low"
-        notes.append({"high": "Inflation near target gives the Fed room to cut if growth weakens.",
-                      "limited": "Inflation above target limits how fast the Fed can cut.",
-                      "low": "Inflation well above target: the Fed has little room to rescue growth."}[flex])
+        notes.append({"high": "Inflation near target: the Fed has room to ease if growth weakens.",
+                      "limited": "Inflation above target: the Fed has little room to ease and may tighten further.",
+                      "low": "Inflation well above target: the Fed is under pressure to tighten even if growth slows."}[flex])
         if r.get("PCEPILFE") and ctx.has("DFF"):
             notes.append("If inflation falls while the Fed holds, the real rate rises — passive tightening.")
     if ctx.has("ULCNFB") and ctx.has("OPHNFB"):
@@ -95,11 +102,9 @@ def assess(ctx) -> dict:
          "series": [{"key": "T5YIE", "label": "5-year breakeven"}, {"key": "T5YIFR", "label": "5y5y forward"},
                     {"key": "MICH", "label": "Consumers, 1-year"}], "source": "Federal Reserve; University of Michigan (via FRED)"},
     ]
-    direction = None
-    if core:
-        direction = core["3m"] - core["yoy"]
+    direction_ = direction(r)
     return {"rates": r, "table": table, "driver": kind, "notes": notes, "fed_flexibility": flex,
-            "expectations": [exp[k] for k in exp], "signals": sig, "charts": charts, "direction": direction,
+            "expectations": [exp[k] for k in exp], "signals": sig, "charts": charts, "direction": direction_,
             "summaries": [ctx.summary(x) for x in ("DCOILWTICO", "GASREGW", "DHHNGSP", "PCOPPUSDM", "PALLFNFINDEXM",
                                                    "CES0500000003", "FRBATLWGT3MMAUMHWGO", "ECIWAG", "ULCNFB", "OPHNFB",
                                                    "CORESTICKM159SFRBATL", "MEDCPIM158SFRBCLE", "PCETRIM12M159SFRBDAL")

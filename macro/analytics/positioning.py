@@ -89,9 +89,10 @@ def assess(ctx) -> dict:
     hedge = [
         _item(ctx, "HF_NET_EXPOSURE", "Net stock exposure", SLOW,
               lambda i: f"Hedge funds are {i['value']:.0f}% net long stocks ({i['period']}; {ordinal(i['pctile'])} percentile of "
-                        f"{i['years']:.0f} years): " + ("crowded — little left to buy." if i["pctile"] >= 80 else
-                                                        "defensive — room to add risk later." if i["pctile"] <= 20 else "normal.")
-                        + pf_age),
+                        f"{i['years']:.0f} years): " + ("unusually high." if i["pctile"] >= 80 else
+                                                        "unusually low — more shorts per long than usual." if i["pctile"] <= 20 else "normal.")
+                        + " Covers all strategies, including hedged multi-strategy books — not the same as the 'net leverage' "
+                          "prime brokers publish for stock-picking funds, which runs much higher. Watch the trend." + pf_age),
         _item(ctx, "HF_LS_RATIO", "Long/short ratio", SLOW,
               lambda i: f"${i['value']:.2f} of stock longs for every $1 of shorts ({i['period']})." + pf_age),
         _item(ctx, "HF_LEVERAGE", "Leverage", SLOW,
