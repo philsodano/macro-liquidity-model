@@ -1,7 +1,7 @@
 """Run all analytics on top of the liquidity engine and build allocation inputs."""
 from __future__ import annotations
 
-from . import allocation, central_banks, consumer, cross_asset, cycle, inflation, markets
+from . import allocation, central_banks, consumer, cross_asset, cycle, inflation, markets, positioning
 from ..transforms import ordinal
 from .signals import Signal
 
@@ -17,6 +17,7 @@ SIGNAL_INPUTS = {
     "real_policy_rate": ("DFF", "PCEPILFE"), "market_path": ("DFF", "DGS1"), "fin_conditions": ("NFCI",),
     "core_pce": ("PCEPILFE",), "expectations": ("T5YIFR",), "curve_recession": ("T10Y3M",), "sahm": ("SAHMREALTIME",),
     "equity_valuation": ("ERP_DAMODARAN",), "credit_valuation": ("BAA10Y",), "credit_momentum": ("BAMLH0A0HYM2",),
+    "crowding": ("CFTC_ES_LEV_NET",), "fragility": ("MARGIN_DEBT",), "hedging": ("VIXCLS", "VXVCLS"),
 }
 
 
@@ -63,6 +64,7 @@ def assess_all(ctx, liq: dict) -> dict:
     cb = central_banks.assess(ctx)
     con = consumer.assess(ctx)
     mk = markets.assess(ctx, recession_prob=cyc["recession_prob"])
+    pos = positioning.assess(ctx)
     pill = {p["id"]: p for p in liq["pillars"]}
     r = dict(mk["readings"])
     r["liquidity_trend"] = liq["consolidated"]["accel"]
@@ -122,6 +124,6 @@ def assess_all(ctx, liq: dict) -> dict:
             context[f"sector:{s['name']}"] = f"{s['rel_3m']:+.1f}pp vs S&P 500 over 3 months."
     alloc = allocation.assess(factors, valuation, context)
     signals = apply_freshness(liquidity_signals(liq) + cb["signals"] + con["signals"] + cyc["signals"] + infl["signals"]
-                              + mk["signals"], ctx)
+                              + mk["signals"] + pos["signals"], ctx)
     return {"central_banks": cb, "consumer": con, "cycle": cyc, "inflation": infl, "markets": mk,
-            "cross_asset": xa, "allocation": alloc, "signals": signals}
+            "cross_asset": xa, "allocation": alloc, "signals": signals, "positioning": pos}

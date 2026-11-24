@@ -6,7 +6,7 @@ from dataclasses import asdict, dataclass, field
 
 import pandas as pd
 
-GROUPS = ("liquidity", "credit", "growth", "labour", "consumer", "inflation", "policy", "valuation")
+GROUPS = ("liquidity", "credit", "growth", "labour", "consumer", "inflation", "policy", "valuation", "positioning")
 
 
 def score_from_z(z: float | None, scale: float = 1.0) -> float:

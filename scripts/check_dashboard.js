@@ -24,7 +24,7 @@ const tabs = ["overview", "central-banks", "liquidity", "consumer", "cycle", "in
       const flag = o.sw > o.cw + 1 || o.failed.length;
       if (flag) problems++;
       console.log(`${name} ${t.padEnd(14)} charts ${o.charts} emptyCharts ${o.empty} overflow ${o.sw - o.cw}px ${o.failed.join(" ")}`);
-      if (["overview", "liquidity", "research", "outlook"].includes(t) || name === "phone" && t === "overview")
+      if (["overview", "liquidity", "markets", "outlook"].includes(t) || name === "phone" && t === "overview")
         await page.screenshot({ path: `${out}/${name}-${t}.png`, fullPage: t !== "research" });
     }
     if (errs.length) { problems++; console.log(`${name} console errors:`, errs.slice(0, 5)); }

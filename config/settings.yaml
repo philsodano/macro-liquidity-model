@@ -26,7 +26,7 @@ scenarios:
   priors: {base: 55, bull: 20, bear: 25}
   floor: 5
   cap: 80
-  weights: {liquidity: 0.6, credit: 0.5, growth: 0.4, labour: 0.3, consumer: 0.3, inflation: 0.3, policy: 0.3, valuation: 0.3}
+  weights: {liquidity: 0.6, credit: 0.5, growth: 0.4, labour: 0.3, consumer: 0.3, inflation: 0.3, policy: 0.3, valuation: 0.3, positioning: 0.3}
 # FOMC decision days (second day of each meeting). Verify against federalreserve.gov each January.
 fomc_decisions: ["2026-01-28", "2026-03-18", "2026-04-29", "2026-06-17", "2026-07-29", "2026-09-16", "2026-10-28", "2026-12-09"]
 research:

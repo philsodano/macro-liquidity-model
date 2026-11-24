@@ -30,3 +30,16 @@ def test_no_dual_axis_charts():
     snap = build_snapshot(Store(), load_registry(), load_settings(), today=date(2026, 11, 23), write=False, research=False)
     for c in snap["charts"]:
         assert all("axis" not in s for s in c["series"]), c["id"]
+
+
+def test_snapshot_has_positioning():
+    from datetime import date
+    from macro.registry import load_registry, load_settings
+    from macro.snapshot import build_snapshot
+    from macro.store import Store
+    snap = build_snapshot(Store(), load_registry(), load_settings(), today=date(2026, 11, 24), write=False, research=False)
+    pos = snap["positioning"]
+    for k in ("hedge_funds", "futures", "leverage", "banks", "options", "signals", "summary"):
+        assert k in pos
+    assert any(c["section"] == "positioning" for c in snap["charts"])
+    assert "positioning" in snap["scenarios"]["group_scores"]

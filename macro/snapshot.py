@@ -86,7 +86,7 @@ def collect_charts(liq: dict, a: dict) -> list[dict]:
         for c in p["charts"]:
             charts.append({**c, "section": f"pillar:{p['id']}"})
     for sec, key in (("central_banks", "central_banks"), ("consumer", "consumer"), ("cycle", "cycle"),
-                     ("inflation", "inflation"), ("markets", "markets")):
+                     ("inflation", "inflation"), ("markets", "markets"), ("positioning", "positioning")):
         for c in a[key]["charts"]:
             charts.append({**c, "section": sec})
     return charts
@@ -176,6 +176,7 @@ def build_snapshot(store, registry, settings, today: date, as_of: date | None = 
         "liquidity": {"pillars": liq["pillars"], "consolidated": liq["consolidated"]},
         "central_banks": a["central_banks"], "consumer": a["consumer"], "cycle": a["cycle"],
         "inflation": a["inflation"], "markets": a["markets"], "cross_asset": a["cross_asset"],
+        "positioning": a["positioning"],
         "allocation": a["allocation"], "signals": [s.to_dict() for s in a["signals"]],
         "scenarios": {**sc, "text": narrative.scenarios(liq, a, sc)},
         "research": res, "charts": charts, "series": series,

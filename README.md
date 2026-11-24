@@ -20,10 +20,12 @@ python -m pytest -q         # 100+ tests; `-m network` adds the live-source chec
 ```
 config/indicators.yaml   221 series: source, units, frequency, cycle timing (leads/moves with/lags), polarity, what/why
 config/settings.yaml     refresh cadence per source, freshness grace, scenario priors and weights, FOMC dates
-macro/sources/           FRED/ALFRED, US Treasury Fiscal Data, NY Fed, ECB, BoE, BIS, SEC XBRL, Tiingo, research files
+macro/sources/           FRED/ALFRED, US Treasury Fiscal Data, NY Fed (incl. primary dealers), ECB, BoE, BIS, SEC XBRL, Tiingo,
+                         CFTC futures positioning, OFR Hedge Fund Monitor (SEC Form PF), FINRA margin debt, research files
 macro/store.py           data/series (current), data/vintages (every value ever seen + date first seen), data/meta
 macro/liquidity/         six pillars → impulses → market / economy / all-pillar composites (no dollar double counting)
-macro/analytics/         central banks, consumer & jobs, cycle, inflation, markets & risk pay, cross-asset checks, allocation
+macro/analytics/         central banks, consumer & jobs, cycle, inflation, markets & risk pay, positioning & leverage,
+                         cross-asset checks, allocation
 macro/research/          transmission lags (bootstrap ranges), historical analogues, tests of the Druckenmiller principles
 macro/scenarios.py       base/bull/bear from evidence (log-odds), floor 5% / cap 80%, bounded analyst override
 macro/snapshot.py        the single JSON both outputs read; macro/narrative.py turns numbers into plain text
@@ -51,9 +53,18 @@ dashboard. **Market liquidity** (Fed, global, credit) is the measure that histor
 `refresh` fetches only what is due (cadence per source in `settings.yaml`). A weekly scheduled Claude session follows
 `RUNBOOK.md`: refresh → build → test → bounded analyst notes → report → commit → republish the dashboard.
 
+## Positioning & leverage (Markets & risk)
+Hedge fund holdings (Form PF: net exposure, long/short ratio, leverage, repo and prime-broker borrowing — quarterly,
+~5 months old, a backdrop for medium/long-term views), hedge fund futures bets (CFTC, weekly), margin debt (FINRA),
+the Treasury basis trade, dealer and bank exposure, and options-market proxies (VIX curve, implied vs realised
+volatility, VIX futures positioning). Three signals — crowding, leverage & fragility, options market — feed the
+scenarios with weight 0.3.
+
 ## Limitations
 - **Market prices (Tiingo) need a valid API key** — until then sector, size, style, gold, BDC and breadth panels are empty.
 - No free fed funds futures: the priced rate path is read from the 1-year yield (includes term premium).
+- No options greeks or dealer gamma (no free options chain here); options section uses proxies. Upgrade path: a
+  registered options feed (e.g. a free Tradier developer token) added like the Tiingo key.
 - No free earnings revisions / forward P/E; valuation uses Damodaran's implied ERP (monthly) and Shiller (to 2024).
 - ICE high-yield spreads on FRED cover ~3 years; long history uses Moody's Baa.
 - PBOC balance sheet is proxied by China's FX reserves; BoE balance sheet not included.

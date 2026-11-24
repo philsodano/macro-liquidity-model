@@ -119,8 +119,11 @@ def blocks(snap: dict, prev: dict | None, notes: dict[str, str], root: Path) -> 
     conf = [x["question"] for x in snap["cross_asset"] if x["verdict"] == "confirm"]
     div = [f"{x['question']} {x['meaning']}" for x in snap["cross_asset"] if x["verdict"] == "diverge"]
     comp = [f"{r['asset']}: {r['measure']} {r.get('display', r['value'])} — {r['verdict']}" for r in mk["compensation"] if r.get("value") is not None]
+    pos = snap.get("positioning") or {}
+    pos_lines = [("h3", "Positioning"), ("p", pos.get("summary") or "No positioning data.")]
+    pos_lines += [("ul", [s["evidence"] for s in pos.get("signals", []) if s.get("available", True)])] if pos.get("signals") else []
     section(6, SECTIONS[5], [("ul", comp), ("p", f"Confirming: {len(conf)} checks. Diverging: {len(div)}."), ("ul", div or ["No cross-asset divergences flagged."]),
-                             ("p", f"Risk appetite {_f(mk['readings'].get('risk_appetite'))}; curve {mk['curve_shape']}.")])
+                             ("p", f"Risk appetite {_f(mk['readings'].get('risk_appetite'))}; curve {mk['curve_shape']}.")] + pos_lines)
 
     al = snap["allocation"]
     ranked = sorted(al["assets"], key=lambda a: -a["score"])

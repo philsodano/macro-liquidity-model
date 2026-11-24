@@ -39,3 +39,11 @@ def test_report_includes_labelled_analyst_notes():
     rep = render_report(SNAP, None, notes)
     liq = rep["md"].split("## 2. Liquidity Update")[1].split("## 3.")[0]
     assert "Analyst interpretation" in liq and "TGA rebuild" in liq
+
+
+def test_report_mentions_positioning():
+    snap = copy.deepcopy(SNAP)
+    snap["positioning"] = {"summary": "Positioning is crowded long.", "signals": []}
+    rep = render_report(snap, None, None)
+    fm = rep["md"].split("## 6. Financial Markets")[1].split("## 7.")[0]
+    assert "Positioning" in fm and "crowded long" in fm

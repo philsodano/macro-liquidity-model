@@ -95,7 +95,13 @@ td details p { color: var(--ink-2); font-size: .8rem; max-width: 60ch; margin-to
 ul.plain { margin: 0; padding-left: 1.1em; display: flex; flex-direction: column; gap: 4px; }
 .muted { color: var(--ink-3); }
 .small { font-size: .8rem; }
-.sig { display: grid; grid-template-columns: minmax(140px, 220px) 120px minmax(0, 1fr); gap: 4px 12px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--grid); }
+.sig { display: grid; grid-template-columns: minmax(140px, 210px) 104px minmax(0, 1fr); gap: 4px 12px; align-items: start; padding: 7px 0; border-bottom: 1px solid var(--grid); }
+.sig .nm { font-weight: 600; }
+.sig > .pill { justify-self: start; }
+details.more { border: 0; padding: 0; display: inline; }
+details.more > summary { display: inline; font-size: .78rem; margin-left: 6px; }
+details.more p { margin-top: 4px; }
+.hz { font-size: .7rem; color: var(--ink-3); white-space: nowrap; }
 .sig:last-child { border-bottom: 0; }
 .sig .ev { color: var(--ink-2); font-size: .84rem; }
 .sig .tags { display: flex; gap: 6px; margin-top: 2px; }
@@ -228,10 +234,17 @@ function summaryTable(rows) {
         h("td", {}, pill(FRESH, r.freshness)));
     }))));
 }
+const SIG = { positive: ["p-good", "Supportive"], negative: ["p-bad", "Headwind"], neutral: ["p-neutral", "Neutral"] };
+const firstSentence = s => { const m = (s || "").match(/^.*?[.!?](?=\s|$)/); return m ? m[0] : (s || ""); };
 function signalList(sigs) {
-  return h("div", {}, (sigs || []).map(s => h("div", { class: "sig" },
-    h("div", {}, h("div", { style: "font-weight:600" }, s.label), h("div", { class: "tags" }, h("span", { class: "tag" }, s.kind), h("span", { class: "tag" }, s.horizon))),
-    dbar(s.score), h("div", { class: "ev" }, s.available === false ? h("span", { class: "muted" }, s.evidence) : s.evidence))));
+  return h("div", {}, (sigs || []).map(s => {
+    const chip = s.available === false ? h("span", { class: "pill p-neutral" }, "Not counted") : pill(SIG, s.state);
+    const rest = (s.evidence || "").slice(firstSentence(s.evidence).length).trim();
+    return h("div", { class: "sig" }, h("div", { class: "nm" }, s.label), chip,
+      h("div", { class: "ev" }, firstSentence(s.evidence),
+        rest || s.kind !== "fact" ? h("details", { class: "more" }, h("summary", {}, "More"),
+          h("p", {}, rest), h("p", { class: "muted small" }, `${s.kind === "fact" ? "Published data" : "Model " + s.kind} · ${TIMING[s.horizon] || s.horizon} the cycle · score ${signed(s.score)}`)) : null));
+  }));
 }
 
 /* ---------- charts: one y-axis, thin marks, hover tooltip, legend + direct labels ---------- */
@@ -335,7 +348,7 @@ function viewOverview(sn) {
   const ex = sn.executive, sc = sn.scenarios, t = sc.text, f = sc.final;
   const changes = sn.changes.items || [];
   return [
-    sectionHead("Macro outlook", "The current read on the cycle, liquidity and where risk is paid. Looks 12–18 months ahead."),
+    sectionHead("Macro outlook", "Where we are, where liquidity is heading, and where risk is paid. Horizon: 12–18 months."),
     h("div", { class: "card thesis" }, h("div", { class: "eyebrow" }, "Current thesis"), h("ul", {}, ex.thesis.map(x => h("li", {}, x)))),
     h("div", { class: "card" }, h("div", { class: "eyebrow" }, "Scenarios (probabilities sum to 100%)"),
       h("div", { class: "scen-bar", role: "img", "aria-label": `Base ${f.base}%, bull ${f.bull}%, bear ${f.bear}%` },
@@ -352,9 +365,9 @@ function viewOverview(sn) {
         h("div", { class: "tbl-wrap" }, h("table", {}, h("thead", {}, h("tr", {}, h("th", {}, "Evidence group"), h("th", { class: "n" }, "Average score"), h("th", { class: "n" }, "Push to bull"))),
           h("tbody", {}, sc.contributions.map(c => h("tr", {}, h("td", {}, c.group), h("td", { class: "n" }, signed(c.score)), h("td", { class: "n" }, signed(c.bull, 2))))))))),
     h("div", { class: "grid" }, ex.tiles.map(ti => h("div", { class: "tile t-" + ti.tone }, h("div", { class: "lab" }, ti.label), h("div", { class: "val" }, ti.value), pill(TONE, ti.tone), h("div", { class: "det" }, ti.detail)))),
-    h("div", { class: "cols2" },
-      h("div", { class: "card" }, h("h3", {}, "Where risk is paid"), ex.risk_rewarded.length ? h("ul", { class: "plain" }, ex.risk_rewarded.map(x => h("li", {}, x))) : h("p", { class: "empty" }, "Nowhere stands out.")),
-      h("div", { class: "card" }, h("h3", {}, "Where it isn't"), ex.risk_not_rewarded.length ? h("ul", { class: "plain" }, ex.risk_not_rewarded.map(x => h("li", {}, x))) : h("p", { class: "empty" }, "Nothing stands out."))),
+    h("div", { class: "card" }, h("h3", {}, "Is risk paid for?"), h("div", { class: "cols2" },
+      h("div", {}, h("div", { class: "eyebrow" }, "Paid"), ex.risk_rewarded.length ? h("ul", { class: "plain" }, ex.risk_rewarded.map(x => h("li", {}, x))) : h("p", { class: "empty" }, "Nowhere stands out.")),
+      h("div", {}, h("div", { class: "eyebrow" }, "Not paid"), ex.risk_not_rewarded.length ? h("ul", { class: "plain" }, ex.risk_not_rewarded.map(x => h("li", {}, x))) : h("p", { class: "empty" }, "Nothing stands out.")))),
     h("div", { class: "cols2" },
       h("div", { class: "card" }, h("h3", {}, "What changed"), h("p", { class: "small muted" }, sn.changes.previous_date ? `Since ${sn.changes.previous_date}` : "First run — nothing to compare yet."),
         changes.length ? h("ul", { class: "plain" }, changes.slice(0, 10).map(c => h("li", {}, h("b", {}, c.field + ": "), `${c.before} → ${c.after}. `, h("span", { class: "muted" }, c.why || "")))) : null),
@@ -366,7 +379,7 @@ function viewOverview(sn) {
 function viewCentralBanks(sn) {
   const cb = sn.central_banks;
   return [
-    sectionHead("Central banks", "What the Fed and other central banks are doing, what markets expect, and whether it is reaching financial conditions."),
+    sectionHead("Central banks", "Policy, what markets expect, and whether it is reaching financial conditions."),
     h("div", { class: "card" }, h("h3", {}, "Policy rates"), h("div", { class: "tbl-wrap" }, h("table", {},
       h("thead", {}, h("tr", {}, h("th", {}, "Central bank"), h("th", { class: "n" }, "Rate"), h("th", { class: "n" }, "12-month change"), h("th", {}, "As of"), h("th", {}, "Status"))),
       h("tbody", {}, cb.rates_table.map(r => h("tr", {}, h("td", {}, r.bank), h("td", { class: "n" }, fmt(r.rate) + "%"), h("td", { class: "n" }, signed(r.change_12m) + "pp"), h("td", {}, r.obs_date), h("td", {}, pill(FRESH, r.freshness))))))),
@@ -404,7 +417,7 @@ function viewLiquidity(sn) {
   const grp = (label, g, note) => h("div", { class: "tile t-" + (g.state === "adding" ? "good" : g.state === "draining" ? "bad" : "neutral") },
     h("div", { class: "lab" }, label), h("div", { class: "val num" }, signed(g.composite)), h("div", { style: "display:flex;gap:6px;flex-wrap:wrap" }, pill(STATE, g.state), h("span", { class: "pill p-accent" }, g.trend)), h("div", { class: "det" }, note));
   return [
-    sectionHead("Liquidity engine", "Where liquidity is being created, destroyed and moved, and whether it is speeding up or slowing down. Scores are z-scores: 0 is normal, ±1 is unusual."),
+    sectionHead("Liquidity engine", "Where liquidity is created, destroyed and moved — and whether that is speeding up. Scores: 0 = normal, ±1 = unusual."),
     h("div", { class: "grid" },
       grp("Market liquidity", c.market, "Fed, global and credit spreads. Historically the one that lines up with risk assets."),
       grp("Economy liquidity", c.economy, "Deficits, bank lending, AI capex. Feeds growth 2–4 quarters out."),
@@ -419,7 +432,7 @@ function viewLiquidity(sn) {
 function viewConsumer(sn) {
   const c = sn.consumer;
   return [
-    sectionHead("Consumer & jobs", "Is spending backed by income, or by borrowing and lower saving? Jobs data confirms the cycle; it rarely warns first."),
+    sectionHead("Consumer & jobs", "Is spending backed by income or by borrowing? Jobs confirm the cycle; they rarely warn first."),
     h("div", { class: "card" }, h("div", { style: "display:flex;gap:8px;align-items:center;flex-wrap:wrap" }, h("h3", {}, "How spending is funded"), pill({ "income-funded": ["p-good"], dissaving: ["p-warn"], borrowing: ["p-warn"], stretched: ["p-bad"] }, c.diagnosis, c.diagnosis)),
       h("p", {}, c.diagnosis_text), h("ul", { class: "plain small" }, c.implications.map(x => h("li", {}, x)))),
     h("div", { class: "cols2" },
@@ -436,7 +449,7 @@ function viewCycle(sn) {
   const cy = sn.cycle, cl = cy.classification;
   const comp = (title, rows) => h("div", { class: "card" }, h("h3", {}, title), rows.map(r => h("div", { class: "sig" }, h("div", {}, r.label), r.z == null ? h("span", { class: "muted small" }, r.note) : dbar(r.z, 3), h("div", { class: "ev num" }, r.z == null ? "" : `${signed(r.z)} · ${r.obs_date}`))));
   return [
-    sectionHead("Business cycle", "Leading indicators against current activity. If they disagree, the model says so instead of forcing a label."),
+    sectionHead("Business cycle", "Leading indicators vs current activity. If they disagree, the model says so."),
     h("div", { class: "grid" },
       h("div", { class: "tile t-" + (cl.mixed ? "mixed" : cl.leading >= 0 ? "good" : "bad") }, h("div", { class: "lab" }, "Phase"), h("div", { class: "val" }, cy.label)),
       h("div", { class: "tile t-neutral" }, h("div", { class: "lab" }, "Growth / inflation mix"), h("div", { class: "val" }, cl.quadrant)),
@@ -454,7 +467,7 @@ function viewCycle(sn) {
 function viewInflation(sn) {
   const f = sn.inflation;
   return [
-    sectionHead("Inflation", "How fast prices are rising, what is driving it, and how much room it leaves the Fed."),
+    sectionHead("Inflation", "How fast prices rise, why, and how much room that leaves the Fed."),
     h("div", { class: "grid" },
       h("div", { class: "tile t-neutral" }, h("div", { class: "lab" }, "Main driver"), h("div", { class: "val" }, f.driver), h("div", { class: "det" }, f.notes[0])),
       h("div", { class: "tile t-" + (f.fed_flexibility === "high" ? "good" : f.fed_flexibility === "low" ? "bad" : "mixed") }, h("div", { class: "lab" }, "Fed's room to ease"), h("div", { class: "val" }, f.fed_flexibility), h("div", { class: "det" }, f.notes[1] || ""))),
@@ -471,7 +484,7 @@ function viewInflation(sn) {
 function viewMarkets(sn) {
   const mk = sn.markets, r = mk.readings;
   return [
-    sectionHead("Markets & risk", "Is risk being paid for? Do the markets agree with each other and with the macro read?"),
+    sectionHead("Markets & risk", "Is risk paid for, who is exposed, and do markets agree with the macro read?"),
     h("div", { class: "card" }, h("h3", {}, "Risk compensation"), h("div", { class: "tbl-wrap" }, h("table", {},
       h("thead", {}, h("tr", {}, h("th", {}, "Asset"), h("th", {}, "Measure"), h("th", { class: "n" }, "Now"), h("th", { class: "n" }, "Percentile"), h("th", {}, "Verdict"))),
       h("tbody", {}, mk.compensation.map(c => h("tr", {}, h("td", {}, c.asset), h("td", {}, c.measure), h("td", { class: "n" }, c.display || fmt(c.value)), h("td", { class: "n" }, c.pctile == null ? "—" : `${ord(c.pctile)} / ${fmt(c.years, 0)}y`), h("td", {}, pill(VERDICT, c.verdict))))))),
@@ -481,17 +494,44 @@ function viewMarkets(sn) {
       h("div", { class: "tile t-neutral" }, h("div", { class: "lab" }, "Yield curve, last 13 weeks"), h("div", { class: "val" }, mk.curve_shape), h("div", { class: "det num" }, `10y ${signed(r.ten_change_bp, 0)}bp · 10y−2y ${signed(r.curve_change_bp, 0)}bp`)),
       h("div", { class: "tile t-neutral" }, h("div", { class: "lab" }, "Stocks"), h("div", { class: "val num" }, signed(r.spx_3m, 1) + "% (3m)"), h("div", { class: "det num" }, `12m ${signed(r.spx_12m, 1)}% · from 1-year high ${signed(r.spx_drawdown, 1)}%`))),
     h("div", { class: "card" }, h("h3", {}, "Cross-asset check"), h("div", { class: "tbl-wrap" }, h("table", {},
-      h("thead", {}, h("tr", {}, h("th", {}, "Question"), h("th", {}, "Answer"), h("th", {}, "What it means"))),
-      h("tbody", {}, sn.cross_asset.map(x => h("tr", {}, h("td", {}, h("details", {}, h("summary", {}, x.question), h("p", { class: "mono" }, x.observed))), h("td", {}, pill(VERDICT, x.verdict)), h("td", { class: "small" }, x.meaning))))))),
-    mk.sectors.length ? h("div", { class: "card" }, h("h3", {}, "Sector leadership (vs S&P 500)"), h("div", { class: "tbl-wrap" }, h("table", {}, h("thead", {}, h("tr", {}, h("th", {}, "Sector"), h("th", { class: "n" }, "3 months"), h("th", { class: "n" }, "12 months"))),
-      h("tbody", {}, mk.sectors.map(s => h("tr", {}, h("td", {}, `${s.name} (${s.ticker})`), h("td", { class: "n" }, signed(s.rel_3m, 1) + "pp"), h("td", { class: "n" }, signed(s.rel_12m, 1) + "pp"))))))) :
+      h("thead", {}, h("tr", {}, h("th", {}, "Question"), h("th", {}, "Answer"))),
+      h("tbody", {}, sn.cross_asset.map(x => h("tr", {}, h("td", {}, x.question, x.verdict === "diverge" ? h("div", { class: "small muted" }, x.meaning) : null), h("td", {}, pill(VERDICT, x.verdict)))))))),
+    mk.sectors.length ? (() => {
+      const tbl = rows => h("div", { class: "tbl-wrap" }, h("table", {}, h("thead", {}, h("tr", {}, h("th", {}, "Sector"), h("th", { class: "n" }, "3 months"), h("th", { class: "n" }, "12 months"))),
+        h("tbody", {}, rows.map(s => h("tr", {}, h("td", {}, `${s.name} (${s.ticker})`), h("td", { class: "n" }, signed(s.rel_3m, 1) + "pp"), h("td", { class: "n" }, signed(s.rel_12m, 1) + "pp"))))));
+      const S_ = mk.sectors;
+      return h("div", { class: "card" }, h("h3", {}, "Sector leadership (vs S&P 500)"),
+        h("p", { class: "small" }, `Leading: ${S_.slice(0, 3).map(s => s.name).join(", ")}. Lagging: ${S_.slice(-3).reverse().map(s => s.name).join(", ")}.`),
+        tbl([...S_.slice(0, 3), ...S_.slice(-3)]), h("details", {}, h("summary", {}, `All ${S_.length} sectors`), tbl(S_)));
+    })() :
       h("div", { class: "card" }, h("h3", {}, "Sector leadership"), h("p", { class: "empty" }, "Needs the Tiingo price feed, which isn't connected yet. Breadth, small-cap and gold checks are also waiting on it.")),
-    h("div", { class: "card" }, h("h3", {}, "Signals"), signalList(mk.signals)),
+    positioningBlock(sn.positioning),
+    h("div", { class: "card" }, h("h3", {}, "Market signals"), signalList(mk.signals)),
     chartGrid(chartsFor("markets")),
     h("details", { class: "card" }, h("summary", {}, "All market indicators"), summaryTable(mk.summaries)),
   ];
 }
 
+const HZ = { "Days to weeks": "Days–weeks", "Weeks to months": "Weeks–months" };
+function positioningBlock(pos) {
+  if (!pos) return null;
+  const block = (title, items, src) => h("div", {}, h("h4", { style: "margin:10px 0 4px" }, title),
+    h("div", { class: "tbl-wrap" }, h("table", {}, h("tbody", {}, items.map(i => h("tr", {},
+      h("td", { style: "width:26%;font-weight:600" }, i.label),
+      h("td", {}, i.plain),
+      h("td", { class: "hz" }, HZ[i.horizon] || "6–18 months"),
+      h("td", {}, pill(FRESH, i.freshness))))))),
+    h("p", { class: "cap" }, src));
+  return h("div", { class: "card" }, h("h3", {}, "Positioning & leverage"),
+    h("p", { class: "lede" }, "Who is exposed and how much is borrowed. Crowded or heavily borrowed positions turn small shocks into forced selling."),
+    signalList(pos.signals),
+    block("Hedge funds — holdings", pos.hedge_funds, "SEC Form PF via the OFR Hedge Fund Monitor. Quarterly, about 5 months old: a backdrop for medium-to-long-term views, not a timing tool."),
+    block("Hedge funds — futures bets", pos.futures, "CFTC Traders in Financial Futures, weekly (Tuesday positions, released Friday). 'Open interest' = all contracts outstanding."),
+    block("Borrowed money", pos.leverage, "FINRA margin statistics (monthly); CFTC via OFR (weekly)."),
+    block("Banks & dealers", pos.banks, "NY Fed Primary Dealer Statistics; Federal Reserve H.8; Tiingo."),
+    block("Options market", pos.options, "Cboe VIX indices via FRED; CFTC. " + pos.note),
+    h("details", {}, h("summary", {}, "Positioning charts"), chartGrid(chartsFor("positioning"))));
+}
 function assetTable(rows, withPriced) {
   return h("div", { class: "tbl-wrap" }, h("table", {}, h("thead", {}, h("tr", {}, h("th", {}, "Asset"), h("th", {}, "Score (−2 to +2)"), h("th", {}, "Stance"), h("th", {}, "Why"))),
     h("tbody", {}, rows.map(a => h("tr", {},
@@ -506,7 +546,7 @@ function viewOutlook(sn) {
   const al = sn.allocation, F = al.factors;
   const names = { liquidity: "Market liquidity", growth: "Growth ahead", inflation: "Inflation rising", real_rates: "Real yields falling", credit: "Credit easing", dollar: "Dollar weakening", ai: "AI capex accelerating" };
   return [
-    sectionHead("Outlook & allocation", "Which assets the current macro mix favours or works against. Scores explain the reasoning; they are not buy or sell calls."),
+    sectionHead("Outlook & allocation", "What the macro mix favours or works against. Reasoning, not buy or sell calls."),
     h("div", { class: "card" }, h("h3", {}, "Macro forces now"), Object.entries(F).map(([k, v]) => h("div", { class: "sig" }, h("div", {}, names[k] || k), dbar(v), h("div", { class: "ev num" }, v == null ? "no data" : signed(v)))),
       h("p", { class: "small muted" }, al.method)),
     h("div", { class: "card" }, h("h3", {}, "Asset classes"), assetTable([...al.assets].sort((a, b) => b.score - a.score), true)),
@@ -523,7 +563,7 @@ function viewResearch(sn) {
       h("tbody", {}, Object.entries(p.by_pillar).map(([k, v]) => h("tr", {}, h("td", {}, k.replace("_", " ")), h("td", {}, v.start), h("td", { class: "n" }, fmt(v.hit_rate_excess, 0) + "%"), h("td", { class: "n" }, signed(v.mean_when_positive, 1) + "%"), h("td", { class: "n" }, signed(v.mean_when_negative, 1) + "%"))))))) : null,
     p.failures && p.failures.length ? h("details", {}, h("summary", {}, `Where it failed (${p.failures.length})`), h("ul", { class: "plain small" }, p.failures.map(f => h("li", {}, `${f.start}${f.end !== f.start ? "–" + f.end : ""}: ${f.kind}`)))) : null));
   return [
-    sectionHead("Research", "Testing the ideas behind the model against history, including where they fail. History rhymes; it does not repeat."),
+    sectionHead("Research", "The model's ideas tested against history, including where they fail."),
     h("div", {}, h("h3", { style: "margin-bottom:8px" }, "Do the Druckenmiller principles hold?"), h("div", { class: "grid wide" }, pr)),
     h("div", { class: "card" }, h("h3", {}, "How long policy takes to work"), h("div", { class: "tbl-wrap" }, h("table", {},
       h("thead", {}, h("tr", {}, h("th", {}, "Channel"), h("th", {}, "Driver → target"), h("th", { class: "n" }, "Best lag (months)"), h("th", { class: "n" }, "Likely range"), h("th", { class: "n" }, "Correlation"), h("th", {}, "Confidence"))),
