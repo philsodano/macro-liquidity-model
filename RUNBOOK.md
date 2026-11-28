@@ -4,7 +4,7 @@ Run every week after Thursday's Fed balance sheet (H.4.1) and Friday's data. Tak
 
 ## 1. Get the repo
 - Attach `philsodano/macro-liquidity-model` (push access) and clone it to `/home/user/macro-liquidity-model`.
-- `pip install --break-system-packages -e .` (needs pandas, numpy, requests, pyyaml, openpyxl, xlrd, pytest).
+- Use Python 3.12 or newer (`python3.13` if the default `python` is older): `python3.13 -m pip install --break-system-packages -e .` and run every `python -m macro …` command with that interpreter.
 
 ## 2. Refresh, build, test
 ```bash

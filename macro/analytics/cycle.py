@@ -22,6 +22,7 @@ COINCIDENT = [
     ("CFNAIMA3", "Chicago Fed activity (3m)", "level", 1, 0), ("RRSFS", "Real retail sales", "chg", 1, 6),
 ]
 MIXED_THRESHOLD = 1.1
+WEIGHTS = {"UMCSENT": 0.5}   # consumer confidence: lower priority (owner, 2026-11-28)
 
 
 def recession_prob(spread_10y3m: float) -> float:
@@ -31,8 +32,9 @@ def recession_prob(spread_10y3m: float) -> float:
 
 
 def classify(leading: list[float], coincident: list[float], inflation_dir: float | None,
-             threshold: float = MIXED_THRESHOLD) -> dict:
-    lead = mean(leading) if leading else 0.0
+             threshold: float = MIXED_THRESHOLD, lead_weights: list[float] | None = None) -> dict:
+    w = lead_weights or [1.0] * len(leading)
+    lead = sum(a * b for a, b in zip(leading, w)) / sum(w) if leading else 0.0
     coin = mean(coincident) if coincident else 0.0
     disp = pstdev(leading + coincident) if len(leading + coincident) > 1 else 0.0
     if coin >= 0 and lead >= 0:
@@ -76,7 +78,8 @@ def assess(ctx, inflation_dir: float | None = None) -> dict:
     coin = [c for c in (_component(ctx, *x) for x in COINCIDENT) if c]
     lz = [c["z"] for c in lead if c["z"] is not None]
     cz = [c["z"] for c in coin if c["z"] is not None]
-    cls = classify(lz, cz, inflation_dir)
+    lw = [WEIGHTS.get(c["id"], 1.0) for c in lead if c["z"] is not None]
+    cls = classify(lz, cz, inflation_dir, lead_weights=lw)
     sig = []
     sig.append(Signal("leading_index", "Leading indicators", cls["leading"] * 1.5, horizon="leading", group="growth",
                       kind="estimate", evidence=f"{len(lz)} leading indicators average {cls['leading']:+.2f} (z-score)."))

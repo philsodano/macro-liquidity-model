@@ -24,6 +24,23 @@ def cuts_priced(effr: float, y1: float) -> float:
     return (effr - y1) / 0.25
 
 
+def dot_plot(ctx) -> dict | None:
+    """Fed's median projections. FEDTARMD is dated by projection year, so it is read without the 'not after today' cut."""
+    dots = ctx.store.read("FEDTARMD", as_of=ctx.as_of)
+    lr = ctx.s("FEDTARMDLR")
+    if dots.empty:
+        return None
+    t = pd.Timestamp(ctx.today)
+    year = t.year + (1 if t.month >= 7 else 0)       # first year-end at least ~6 months away
+    row = dots[dots.index.year == year]
+    if row.empty:
+        return None
+    return {"next_year": year, "median_next": float(row.iloc[-1]),
+            "path": {int(d.year): float(v) for d, v in dots.items()},
+            "long_run": float(lr.iloc[-1]) if len(lr) else None,
+            "published": lr.index[-1].strftime("%Y-%m-%d") if len(lr) else None}
+
+
 def assess(ctx) -> dict:
     sig, notes, table = [], [], []
     dff, core = ctx.s("DFF"), ctx.s("PCEPILFE")
@@ -49,6 +66,19 @@ def assess(ctx) -> dict:
                                    f"over the next year {abs(effr - y1):.2f}pp {'lower' if n > 0 else 'higher'} "
                                    f"(≈{abs(n):.1f} {verb} of 0.25% on average; rough — includes term premium). "
                                    f"2-year yield {y2:.2f}%."))
+    dots = dot_plot(ctx)
+    if dots and effr is not None and ctx.has("DGS1"):
+        y1 = float(ctx.s("DGS1").iloc[-1])
+        dn = dots["median_next"]
+        # market priced above the Fed's own path = tightening already priced (supportive);
+        # Fed planning to go higher than today = headwind
+        score = 0.5 * max(-2, min(2, (y1 - dn) / 0.5)) + 0.5 * max(-2, min(2, -(dn - effr) / 0.25))
+        sig.append(Signal("fed_path", "Fed dot plot vs markets", score, kind="estimate", horizon="leading", group="policy",
+                          evidence=f"Fed officials' median sees rates at {dn:.2f}% at end-{dots['next_year']} (now {effr:.2f}%); "
+                                   f"markets' 1-year yield is {y1:.2f}%. "
+                                   + ("The Fed plans more hikes than today's level. " if dn > effr + 0.1 else
+                                      "The Fed plans cuts from here. " if dn < effr - 0.1 else "The Fed plans little change. ")
+                                   + (f"Long-run rate {dots['long_run']:.2f}% (projections of {dots['published']})." if dots["long_run"] else "")))
     if ctx.has("NFCI"):
         n = ctx.summary("NFCI")
         tight = n["latest"] > 0
@@ -91,7 +121,7 @@ def assess(ctx) -> dict:
     n_priced = cuts_priced(effr, float(ctx.s("DGS1").iloc[-1])) if effr is not None and ctx.has("DGS1") else None
     direction = policy_direction(ctx.s("DFEDTARU") if ctx.has("DFEDTARU") else dff, n_priced)
     notes.insert(0, f"Policy direction: {direction}.")
-    return {"signals": sig, "notes": notes, "rates_table": table, "charts": charts, "direction": direction,
+    return {"signals": sig, "notes": notes, "rates_table": table, "charts": charts, "direction": direction, "dots": dots,
             "real_rate": rr, "neutral_assumption": NEUTRAL_REAL,
             "summaries": [ctx.summary(x) for x in ("DFF", "DFEDTARU", "IORB", "SOFR", "DTB3", "DTB6", "DGS1", "DGS2",
                                                    "DFII5", "NFCI", "ANFCI", "ECBDFR", "BOE_RATE", "IRSTCI01JPM156N",

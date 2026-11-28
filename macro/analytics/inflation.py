@@ -52,6 +52,13 @@ def assess(ctx) -> dict:
                                    f"({'speeding up' if trend > 0.2 else 'slowing' if trend < -0.2 else 'steady'}). Target 2%."))
     else:
         sig.append(missing("core_pce", "Core PCE", "inflation", "no core PCE"))
+    cc = r.get("CPILFESL", {})
+    if cc:
+        tr = cc["3m"] - cc["yoy"]
+        sig.append(Signal("core_cpi", "Core CPI (first inflation report each month)", (3.1 - cc["3m"]) * 1.2 - tr * 0.5,
+                          horizon="lagging", group="inflation",
+                          evidence=f"Core CPI {cc['3m']:.1f}% annualised over 3 months, {cc['yoy']:.1f}% over 12 months "
+                                   f"(12-month figure to {cc['yoy_date']})."))
     wages = ctx.summary("FRBATLWGT3MMAUMHWGO")["latest"] if ctx.has("FRBATLWGT3MMAUMHWGO") else None
     energy = ctx.summary("DCOILWTICO")["yoy"] if ctx.has("DCOILWTICO") else None
     kind, text = decompose(r.get("IA001260M", {}).get("3m"), wages, r.get("CUSR0000SACL1E", {}).get("3m"), energy,
@@ -100,7 +107,7 @@ def assess(ctx) -> dict:
                     {"key": "CUSR0000SACL1E", "label": "Core goods", "transform": "yoy"}], "source": "BLS; BEA (via FRED)"},
         {"id": "in_exp", "title": "Inflation expectations", "units": "%", "start": "2010-01-01",
          "series": [{"key": "T5YIE", "label": "5-year breakeven"}, {"key": "T5YIFR", "label": "5y5y forward"},
-                    {"key": "MICH", "label": "Consumers, 1-year"}], "source": "Federal Reserve; University of Michigan (via FRED)"},
+                    ], "source": "Federal Reserve (via FRED)"},
     ]
     direction_ = direction(r)
     return {"rates": r, "table": table, "driver": kind, "notes": notes, "fed_flexibility": flex,

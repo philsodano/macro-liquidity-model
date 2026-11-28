@@ -10,6 +10,32 @@ def _yoy(ctx, sid):
     return ctx.summary(sid)["yoy"] if ctx.has(sid) else None
 
 
+def jobs_report(ctx) -> Signal:
+    """The monthly jobs report, scored on its own (owner's top-priority release):
+    60% the 3-month average pace, 20% the latest month vs that pace, 20% revisions to the prior two months."""
+    p = ctx.s("PAYEMS").dropna()
+    ch = p.diff().dropna()
+    ctx.put("PAYROLL_3M_AVG", p.diff().rolling(3).mean())
+    avg3, last = float(ch.tail(3).mean()), float(ch.iloc[-1])
+    parts = [(0.6, (avg3 - 75) / 75), (0.2, (last - avg3) / 100)]
+    rev = None
+    vint = ctx.store._p("vintages", "PAYEMS")
+    if vint.exists() and len(p) > 2:
+        log = pd.read_csv(vint)
+        prior = p.index[-2]
+        first = log[log["obs_date"] == prior.strftime("%Y-%m-%d")]
+        if len(first) > 1:
+            rev = float(p.iloc[-2] - first["value"].iloc[0])
+            parts.append((0.2, rev / 50))
+    wsum = sum(w for w, _ in parts)
+    score = sum(w * x for w, x in parts) / wsum
+    month = p.index[-1].strftime("%b")
+    ev = (f"Jobs report: {last:+.0f}k jobs in {month}; 3-month average {avg3:+.0f}k a month"
+          + (f"; earlier months revised {rev:+.0f}k" if rev is not None else "")
+          + (f"; unemployment {ctx.summary('UNRATE')['latest']:.1f}%" if ctx.has("UNRATE") else "") + ".")
+    return Signal("jobs_report", "Jobs report (nonfarm payrolls)", score, horizon="coincident", group="jobs_report", evidence=ev)
+
+
 def funding_diagnosis(real_pce_yoy, real_dpi_yoy, saving_chg_12m, credit_yoy, nominal_income_yoy) -> tuple[str, str]:
     if real_pce_yoy is None or real_dpi_yoy is None:
         return "n/a", "Not enough data."
@@ -27,11 +53,7 @@ def funding_diagnosis(real_pce_yoy, real_dpi_yoy, saving_chg_12m, credit_yoy, no
 def assess(ctx) -> dict:
     lab, con = [], []
     if ctx.has("PAYEMS"):
-        p = ctx.s("PAYEMS").dropna()
-        avg3 = float(p.diff().tail(3).mean())
-        ctx.put("PAYROLL_3M_AVG", p.diff().rolling(3).mean())
-        lab.append(Signal("payrolls", "Job growth (3-month average)", (avg3 - 75) / 75, horizon="coincident", group="labour",
-                          evidence=f"Payrolls {avg3:+.0f}k a month over the last 3 months."))
+        lab.append(jobs_report(ctx))
     if ctx.has("ICSA"):
         c = ctx.s("ICSA").dropna()
         ma4 = c.rolling(4).mean()

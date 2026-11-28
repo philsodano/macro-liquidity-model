@@ -17,6 +17,7 @@ SIGNAL_INPUTS = {
     "real_policy_rate": ("DFF", "PCEPILFE"), "market_path": ("DFF", "DGS1"), "fin_conditions": ("NFCI",),
     "core_pce": ("PCEPILFE",), "expectations": ("T5YIFR",), "curve_recession": ("T10Y3M",), "sahm": ("SAHMREALTIME",),
     "equity_valuation": ("ERP_DAMODARAN",), "credit_valuation": ("BAA10Y",), "credit_momentum": ("BAMLH0A0HYM2",),
+    "jobs_report": ("PAYEMS",), "core_cpi": ("CPILFESL",), "fed_path": ("FEDTARMDLR", "DGS1"),
     "crowding": ("CFTC_ES_LEV_NET",), "fragility": ("MARGIN_DEBT",), "hedging": ("VIXCLS", "VXVCLS"),
 }
 
